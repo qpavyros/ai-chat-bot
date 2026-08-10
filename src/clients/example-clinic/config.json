@@ -1,0 +1,18 @@
+{
+  "id": "example-clinic",
+  "displayName": "عيادة المثال لطب الأسنان",
+  "whatsappPhoneNumberId": "REPLACE_WITH_CLIENT_WHATSAPP_PHONE_NUMBER_ID",
+  "language": "ar-LB",
+  "tone": "مطمئن، محترف، جمل قصيرة",
+  "escalation": {
+    "phone": "+961-00-000000",
+    "contactMethod": "الاتصال بالعيادة مباشرة (خصوصًا لأي وجع طارئ أو سؤال طبي دقيق)",
+    "notifyWhatsapp": "9610000000"
+  },
+  "appointments": {
+    "enabled": true,
+    "workingHours": { "start": "09:00", "end": "17:00" },
+    "slotMinutes": 30,
+    "offDays": [5]
+  }
+}

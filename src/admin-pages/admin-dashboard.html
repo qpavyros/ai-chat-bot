@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة تحكم المشغّل</title>
+<style>
+  :root {
+    --teal: #0f766e; --teal-dark: #115e59; --teal-bg: #f0fdfa;
+    --bg: #f9fafb; --fg: #1a1a1a; --muted: #6b7280; --border: #e5e7eb;
+    --danger: #b91c1c; --danger-bg: #fef2f2; --warn: #b45309; --warn-bg: #fffbeb;
+    --ok-bg: #f0fdf4; --ok: #166534;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "IBM Plex Sans Arabic", -apple-system, "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--fg); margin: 0; }
+  header { background: white; border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 1.1rem; margin: 0; color: var(--teal-dark); }
+  header .actions { display: flex; gap: 10px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  button { cursor: pointer; border: none; border-radius: 8px; padding: 9px 16px; font-size: 0.88rem; }
+  .btn-primary { background: var(--teal); color: white; }
+  .btn-primary:hover { background: var(--teal-dark); }
+  .btn-secondary { background: white; border: 1px solid var(--border); color: var(--fg); }
+  .btn-secondary:hover { background: #f3f4f6; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  th, td { padding: 12px 14px; text-align: right; font-size: 0.88rem; border-bottom: 1px solid var(--border); }
+  th { background: #fafafa; color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+  .badge-active { background: var(--ok-bg); color: var(--ok); }
+  .badge-disabled { background: var(--danger-bg); color: var(--danger); }
+  .badge-expiring { background: var(--warn-bg); color: var(--warn); }
+  .muted { color: var(--muted); font-size: 0.8rem; }
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 10; }
+  .overlay.open { display: flex; }
+  .modal { background: white; border-radius: 14px; padding: 28px; width: 100%; max-width: 560px; }
+  .modal h2 { margin: 0 0 18px; font-size: 1.05rem; }
+  .modal label { display: block; font-size: 0.82rem; color: #4b5563; margin: 12px 0 5px; }
+  .modal input, .modal select, .modal textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+  .modal textarea { resize: vertical; font-family: inherit; font-size: 0.88rem; }
+  .modal #f_knowledge { min-height: 160px; font-family: ui-monospace, monospace; font-size: 0.83rem; }
+  .intake-divider { margin: 18px 0 4px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 0.8rem; font-weight: 600; color: var(--teal-dark); }
+  .modal .row { display: flex; gap: 12px; }
+  .modal .row > div { flex: 1; }
+  .modal-actions { display: flex; justify-content: space-between; margin-top: 20px; gap: 10px; }
+  .modal-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 1em; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 8px 14px; font-size: 0.85rem; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--teal-dark); border-color: var(--teal); font-weight: 600; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  @media (prefers-color-scheme: dark) {
+    body { background: #0b0f0e; color: #e5e7eb; }
+    header, table, .modal { background: #12181a; border-color: #263033; }
+    th { background: #16201f; }
+    tr:hover td { background: #16201f; }
+    td, th { border-color: #263033; }
+    .btn-secondary { background: #12181a; border-color: #263033; color: #e5e7eb; }
+    .btn-secondary:hover { background: #1c2a29; }
+    .modal input, .modal select, .modal textarea { background: #0e1516; border-color: #263033; color: #e5e7eb; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎛️ لوحة تحكم المشغّل</h1>
+  <div class="actions">
+    <button class="btn-primary" id="addClientBtn">+ إضافة عميل</button>
+    <button class="btn-secondary" id="logoutBtn">خروج</button>
+  </div>
+</header>
+
+<main>
+  <table id="clientsTable">
+    <thead>
+      <tr>
+        <th>الشركة</th>
+        <th>الحالة</th>
+        <th>ينتهي</th>
+        <th>مصدر المعرفة</th>
+        <th>ملفات المعرفة</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="clientsBody"></tbody>
+  </table>
+  <div class="empty" id="emptyState" style="display:none">ما في عملاء بعد. دوس "+ إضافة عميل".</div>
+</main>
+
+<!-- Modal: تعديل/عرض عميل -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h2 id="editTitle">تعديل عميل</h2>
+    <div class="tabs">
+      <div class="tab active" data-tab="info">معلومات</div>
+      <div class="tab" data-tab="knowledge">قاعدة المعرفة</div>
+    </div>
+
+    <div class="tab-panel active" data-panel="info">
+      <label>اسم الشركة</label>
+      <input id="f_displayName">
+      <div class="row">
+        <div>
+          <label>الحالة</label>
+          <select id="f_status">
+            <option value="active">فعّال</option>
+            <option value="disabled">موقوف</option>
+          </select>
+        </div>
+        <div>
+          <label>تاريخ انتهاء الاشتراك</label>
+          <input type="date" id="f_expiresAt">
+        </div>
+      </div>
+      <label>رقم تواصل التصعيد</label>
+      <input id="f_phone">
+      <label>وصف التصعيد (يظهر للزبون)</label>
+      <input id="f_contactMethod">
+      <label>رقم واتساب الإشعارات (صاحب المحل)</label>
+      <input id="f_notifyWhatsapp">
+      <label>مصدر المعرفة (ملاحظة حرة — اسم ملف/رابط موقع)</label>
+      <input id="f_knowledgeSourceLabel" placeholder="مثلاً: PDF أرسله الزبون بتاريخ 2026-08-09، أو رابط الموقع">
+    </div>
+
+    <div class="tab-panel" data-panel="knowledge">
+      <label>knowledge.md</label>
+      <textarea id="f_knowledge"></textarea>
+      <div class="muted" style="margin-top:6px">بيتحفظ بملف منفصل (زر "حفظ المعرفة" تحت) — نسخة احتياطية تلقائية قبل كل حفظ.</div>
+      <div style="margin-top:10px"><button class="btn-secondary" id="saveKnowledgeBtn">حفظ المعرفة</button></div>
+    </div>
+
+    <div class="modal-error" id="editError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeEditBtn">إغلاق</button>
+      <button class="btn-primary" id="saveInfoBtn">حفظ المعلومات</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: إضافة عميل -->
+<div class="overlay" id="addOverlay">
+  <div class="modal">
+    <h2>إضافة عميل جديد</h2>
+    <label>اسم الشركة *</label>
+    <input id="a_companyName" required>
+    <div class="row">
+      <div>
+        <label>رقم تواصل التصعيد *</label>
+        <input id="a_escalationPhone" required>
+      </div>
+      <div>
+        <label>رقم واتساب الإشعارات</label>
+        <input id="a_notifyWhatsapp">
+      </div>
+    </div>
+    <label>إيميل تواصل (اختياري)</label>
+    <input id="a_contactEmail">
+    <label>تاريخ انتهاء الاشتراك (اختياري)</label>
+    <input type="date" id="a_expiresAt">
+    <label>مصدر المعرفة (ملاحظة حرة)</label>
+    <input id="a_knowledgeSourceLabel" placeholder="مثلاً: رابط الموقع أو اسم ملف PDF">
+
+    <div class="intake-divider">قاعدة المعرفة — خانات منظّمة (بتتحوّل تلقائيًا لـknowledge.md بصيغة موحّدة)</div>
+
+    <label>عن المحل/الشركة (وصف قصير)</label>
+    <textarea id="a_about" rows="2" placeholder="نوع النشاط، مين الزبون المستهدف، أي ميزة تميّزهم..."></textarea>
+
+    <label>الفئات/الخدمات الرئيسية (سطر لكل فئة)</label>
+    <textarea id="a_categories" rows="3" placeholder="لابتوبات&#10;موبايلات&#10;إكسسوارات"></textarea>
+
+    <label>الماركات (مفصولة بفاصلة، اختياري)</label>
+    <input id="a_brands" placeholder="Samsung, Apple, TP-Link...">
+
+    <div class="row">
+      <div>
+        <label>دوام العمل</label>
+        <input id="a_hours" placeholder="السبت-الخميس 9ص-7م">
+      </div>
+      <div>
+        <label>طريقة الدفع</label>
+        <input id="a_payment" placeholder="كاش، Whish، بطاقة...">
+      </div>
+    </div>
+
+    <label>الفروع/العنوان (سطر لكل فرع)</label>
+    <textarea id="a_branches" rows="2" placeholder="الحمرا: شارع الحمرا مقابل صيدلية العرب&#10;الأشرفية: ..."></textarea>
+
+    <label>التوصيل (المناطق، الكلفة، المدة)</label>
+    <textarea id="a_delivery" rows="2" placeholder="توصيل لكل لبنان، مجاني فوق 50$، خلال يوم-يومين"></textarea>
+
+    <label>الضمان/الاسترجاع</label>
+    <textarea id="a_warranty" rows="2" placeholder="استرجاع خلال 7 أيام بالفاتورة، ضمان سنة على..."></textarea>
+
+    <label>منتجات/خدمات مختارة (سطر لكل وحدة: الاسم - السعر - وصف قصير)</label>
+    <textarea id="a_products" rows="4" placeholder="Galaxy A55 - 330$ - رام 8/128، شاشة 120Hz&#10;توصيل توصيل سريع - 5$ - خلال ساعتين"></textarea>
+
+    <label>ملاحظات إضافية (اختياري)</label>
+    <textarea id="a_extra" rows="2"></textarea>
+
+    <div class="modal-error" id="addError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeAddBtn">إلغاء</button>
+      <button class="btn-primary" id="createClientBtn">إنشاء</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var clientsCache = [];
+  var currentEditId = null;
+
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    return fetch(url, opts).then(function (res) {
+      if (res.status === 401) { window.location.href = '/admin/login'; throw new Error('unauthorized'); }
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || 'صار خطأ');
+        return data;
+      });
+    });
+  }
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    var diff = new Date(dateStr).getTime() - Date.now();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function statusBadge(client) {
+    if (client.status === 'disabled') return '<span class="badge badge-disabled">موقوف</span>';
+    var days = daysUntil(client.expiresAt);
+    if (days !== null && days <= 7) {
+      return '<span class="badge badge-expiring">فعّال — بينتهي خلال ' + days + ' يوم</span>';
+    }
+    return '<span class="badge badge-active">فعّال</span>';
+  }
+
+  function renderClients() {
+    var body = document.getElementById('clientsBody');
+    var empty = document.getElementById('emptyState');
+    body.innerHTML = '';
+
+    if (!clientsCache.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    clientsCache.forEach(function (c) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><strong>' + escapeHtml(c.displayName) + '</strong><div class="muted">' + c.id + '</div></td>' +
+        '<td>' + statusBadge(c) + '</td>' +
+        '<td>' + (c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('ar') : '<span class="muted">بدون تاريخ</span>') + '</td>' +
+        '<td>' + (c.knowledgeSource ? escapeHtml(c.knowledgeSource) : '<span class="muted">غير محدد</span>') + '</td>' +
+        '<td class="muted">' + c.knowledgeFiles.length + ' ملف</td>' +
+        '<td><button class="btn-secondary" data-edit="' + c.id + '">تعديل</button></td>';
+      body.appendChild(tr);
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn.getAttribute('data-edit')); });
+    });
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function loadClients() {
+    api('/admin/api/clients').then(function (data) {
+      clientsCache = data.clients;
+      renderClients();
+    });
+  }
+
+  function openEdit(id) {
+    currentEditId = id;
+    document.getElementById('editError').textContent = '';
+    api('/admin/api/clients/' + id).then(function (data) {
+      var cfg = data.config;
+      document.getElementById('editTitle').textContent = 'تعديل: ' + cfg.displayName;
+      document.getElementById('f_displayName').value = cfg.displayName || '';
+      document.getElementById('f_status').value = cfg.status || 'active';
+      document.getElementById('f_expiresAt').value = (cfg.trialExpiresAt || cfg.subscriptionExpiresAt || '').slice(0, 10);
+      document.getElementById('f_phone').value = cfg.escalation?.phone || '';
+      document.getElementById('f_contactMethod').value = cfg.escalation?.contactMethod || '';
+      document.getElementById('f_notifyWhatsapp').value = cfg.escalation?.notifyWhatsapp || '';
+      document.getElementById('f_knowledgeSourceLabel').value = cfg.source?.value || cfg.knowledgeSourceLabel || '';
+      document.getElementById('f_knowledge').value = data.knowledge || '';
+      document.getElementById('editOverlay').classList.add('open');
+    }).catch(function (err) {
+      alert(err.message);
+    });
+  }
+
+  document.getElementById('closeEditBtn').addEventListener('click', function () {
+    document.getElementById('editOverlay').classList.remove('open');
+  });
+
+  document.getElementById('saveInfoBtn').addEventListener('click', function () {
+    var errorEl = document.getElementById('editError');
+    errorEl.textContent = '';
+
+    api('/admin/api/clients/' + currentEditId).then(function (data) {
+      var cfg = data.config;
+      var expiresAt = document.getElementById('f_expiresAt').value || null;
+      var payload = Object.assign({}, cfg, {
+        displayName: document.getElementById('f_displayName').value,
+        status: document.getElementById('f_status').value,
+        knowledgeSourceLabel: document.getElementById('f_knowledgeSourceLabel').value,
+        escalation: Object.assign({}, cfg.escalation, {
+          phone: document.getElementById('f_phone').value,
+          contactMethod: document.getElementById('f_contactMethod').value,
+          notifyWhatsapp: document.getElementById('f_notifyWhatsapp').value,
+        }),
+      });
+      if (payload.plan === 'trial') payload.trialExpiresAt = expiresAt;
+      else payload.subscriptionExpiresAt = expiresAt;
+
+      return api('/admin/api/clients/' + currentEditId, { method: 'PUT', body: JSON.stringify(payload) });
+    }).then(function () {
+      document.getElementById('editOverlay').classList.remove('open');
+      loadClients();
+    }).catch(function (err) {
+      errorEl.textContent = err.message;
+    });
+  });
+
+  document.getElementById('saveKnowledgeBtn').addEventListener('click', function () {
+    var errorEl = document.getElementById('editError');
+    errorEl.textContent = '';
+    var content = document.getElementById('f_knowledge').value;
+    api('/admin/api/clients/' + currentEditId + '/knowledge', { method: 'PUT', body: JSON.stringify({ content: content }) })
+      .then(function () {
+        loadClients();
+        errorEl.style.color = 'green';
+        errorEl.textContent = 'انحفظت ✓';
+      }).catch(function (err) {
+        errorEl.style.color = '';
+        errorEl.textContent = err.message;
+      });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (tab) {
+    tab.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.classList.remove('active'); });
+      Array.prototype.forEach.call(document.querySelectorAll('.tab-panel'), function (p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.querySelector('[data-panel="' + tab.getAttribute('data-tab') + '"]').classList.add('active');
+    });
+  });
+
+  // ---------- إضافة عميل ----------
+  var INTAKE_FIELD_IDS = [
+    'a_companyName', 'a_escalationPhone', 'a_notifyWhatsapp', 'a_contactEmail', 'a_expiresAt',
+    'a_knowledgeSourceLabel', 'a_about', 'a_categories', 'a_brands', 'a_hours', 'a_payment',
+    'a_branches', 'a_delivery', 'a_warranty', 'a_products', 'a_extra',
+  ];
+
+  // بيحوّل خانات النموذج المنظّمة لصيغة knowledge.md موحّدة — نفس البنية المستخدمة يدويًا
+  // بكل عميل لغاية هلق (عن المحل / فئات / ماركات / دوام / فروع / توصيل / دفع / ضمان / منتجات).
+  // كل قسم فاضي بينحذف تلقائيًا، ما بيتحقن "## دوام العمل" فاضي بدون فايدة.
+  function buildKnowledgeMarkdown() {
+    var name = document.getElementById('a_companyName').value.trim();
+    var lines = ['# قاعدة معرفة — ' + (name || 'عميل جديد'), ''];
+
+    function section(title, value) {
+      if (!value || !value.trim()) return;
+      lines.push('## ' + title, value.trim(), '');
+    }
+
+    function listSection(title, value) {
+      if (!value || !value.trim()) return;
+      lines.push('## ' + title);
+      value.trim().split('\n').forEach(function (line) {
+        if (line.trim()) lines.push('- ' + line.trim());
+      });
+      lines.push('');
+    }
+
+    section('عن المحل', document.getElementById('a_about').value);
+    listSection('الفئات/الخدمات الرئيسية', document.getElementById('a_categories').value);
+
+    var brands = document.getElementById('a_brands').value.trim();
+    if (brands) lines.push('## الماركات', brands, '');
+
+    var hours = document.getElementById('a_hours').value.trim();
+    var payment = document.getElementById('a_payment').value.trim();
+    if (hours) lines.push('## دوام العمل', hours, '');
+    if (payment) lines.push('## الدفع', payment, '');
+
+    listSection('الفروع', document.getElementById('a_branches').value);
+    section('التوصيل', document.getElementById('a_delivery').value);
+    section('الضمان/الاسترجاع', document.getElementById('a_warranty').value);
+    listSection('منتجات/خدمات مختارة', document.getElementById('a_products').value);
+    section('ملاحظات إضافية', document.getElementById('a_extra').value);
+
+    lines.push(
+      '## ⚠️ ملاحظة',
+      'هاي معلومات مختارة، مش كاتالوج كامل. لو الزبون سأل عن منتج/سعر مش مذكور هون، اعتذر وما تخترع رقم — وجّهه للتواصل المباشر.'
+    );
+
+    return lines.join('\n');
+  }
+
+  document.getElementById('addClientBtn').addEventListener('click', function () {
+    document.getElementById('addError').textContent = '';
+    INTAKE_FIELD_IDS.forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('addOverlay').classList.add('open');
+  });
+  document.getElementById('closeAddBtn').addEventListener('click', function () {
+    document.getElementById('addOverlay').classList.remove('open');
+  });
+  document.getElementById('createClientBtn').addEventListener('click', function () {
+    var errorEl = document.getElementById('addError');
+    errorEl.textContent = '';
+    var payload = {
+      companyName: document.getElementById('a_companyName').value,
+      escalationPhone: document.getElementById('a_escalationPhone').value,
+      notifyWhatsapp: document.getElementById('a_notifyWhatsapp').value,
+      contactEmail: document.getElementById('a_contactEmail').value,
+      expiresAt: document.getElementById('a_expiresAt').value || null,
+      knowledgeSourceLabel: document.getElementById('a_knowledgeSourceLabel').value,
+      knowledgeText: buildKnowledgeMarkdown(),
+    };
+    api('/admin/api/clients', { method: 'POST', body: JSON.stringify(payload) })
+      .then(function () {
+        document.getElementById('addOverlay').classList.remove('open');
+        loadClients();
+      }).catch(function (err) {
+        errorEl.textContent = err.message;
+      });
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', function () {
+    api('/admin/logout', { method: 'POST' }).then(function () { window.location.href = '/admin/login'; });
+  });
+
+  loadClients();
+</script>
+</body>
+</html>

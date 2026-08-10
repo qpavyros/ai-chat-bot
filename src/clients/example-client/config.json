@@ -1,0 +1,18 @@
+{
+  "id": "example-client",
+  "displayName": "متجر المثال",
+  "whatsappPhoneNumberId": "1170763732796739",
+  "language": "ar-LB",
+  "tone": "ودود، مباشر، جمل قصيرة، يرد باللهجة اللبنانية إذا كتب الزبون فيها",
+  "escalation": {
+    "phone": "+961-00-000000",
+    "contactMethod": "الاتصال فينا مباشرة",
+    "notifyWhatsapp": "96181956972"
+  },
+  "orders": {
+    "enabled": true
+  },
+  "status": "active",
+  "knowledgeSourceLabel": "اختبار: بيانات مُدخلة يدويًا 2026-08-09",
+  "subscriptionExpiresAt": null
+}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تسجيل الدخول — لوحة المشغّل</title>
+<style>
+  :root { --teal: #0f766e; --teal-dark: #115e59; --bg: #f9fafb; --fg: #1a1a1a; --border: #e5e7eb; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "IBM Plex Sans Arabic", -apple-system, "Segoe UI", Tahoma, sans-serif;
+    background: var(--bg); color: var(--fg); display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; margin: 0;
+  }
+  .card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 32px; width: 100%; max-width: 360px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  h1 { font-size: 1.2rem; margin: 0 0 20px; text-align: center; color: var(--teal-dark); }
+  label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: #4b5563; }
+  input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 14px; }
+  input:focus { outline: 2px solid var(--teal); border-color: var(--teal); }
+  button { width: 100%; padding: 11px; background: var(--teal); color: white; border: none; border-radius: 8px; font-size: 0.95rem; cursor: pointer; }
+  button:hover { background: var(--teal-dark); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .error { color: #b91c1c; font-size: 0.85rem; margin-bottom: 12px; min-height: 1em; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0b0f0e; color: #e5e7eb; }
+    .card { background: #12181a; border-color: #263033; }
+    input { background: #0e1516; border-color: #263033; color: #e5e7eb; }
+  }
+</style>
+</head>
+<body>
+  <form class="card" id="loginForm">
+    <h1>🔒 لوحة تحكم المشغّل</h1>
+    <label for="password">كلمة السر</label>
+    <input type="password" id="password" name="password" autofocus required>
+    <div class="error" id="error"></div>
+    <button type="submit" id="submitBtn">دخول</button>
+  </form>
+
+<script>
+  var form = document.getElementById('loginForm');
+  var errorEl = document.getElementById('error');
+  var submitBtn = document.getElementById('submitBtn');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    errorEl.textContent = '';
+    submitBtn.disabled = true;
+    var password = document.getElementById('password').value;
+
+    fetch('/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password })
+    })
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (result) {
+        submitBtn.disabled = false;
+        if (result.ok) {
+          window.location.href = '/admin';
+        } else {
+          errorEl.textContent = result.data.error || 'صار خطأ';
+        }
+      })
+      .catch(function () {
+        submitBtn.disabled = false;
+        errorEl.textContent = 'تعذّر الاتصال بالسيرفر';
+      });
+  });
+</script>
+</body>
+</html>
