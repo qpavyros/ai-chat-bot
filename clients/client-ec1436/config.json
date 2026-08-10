@@ -1,0 +1,17 @@
+{
+  "id": "client-ec1436",
+  "displayName": "أيوب كمبيوتر",
+  "language": "ar-LB",
+  "tone": "ودود، مباشر، جمل قصيرة، يرد باللهجة اللبنانية إذا كتب الزبون فيها",
+  "escalation": {
+    "phone": "غير محدد بعد — حدّثه من الداشبورد",
+    "contactMethod": "التواصل مع فريق أيوب كمبيوتر مباشرة",
+    "notifyWhatsapp": "96181956972"
+  },
+  "contactEmail": null,
+  "status": "active",
+  "plan": "manual",
+  "subscriptionExpiresAt": null,
+  "knowledgeSourceLabel": "https://ayoubcomputers.com/",
+  "createdAt": "2026-08-09T16:22:41.343Z"
+}
