@@ -34,8 +34,10 @@ function buildSystemPrompt(client, profile) {
 
   if (client.appointments?.enabled) {
     lines.push(
-      `عندك أدوات لفحص المواعيد المتاحة وحجز موعد — استخدمها دائمًا بدل ما تخمّن أو تفترض توفر أي وقت. ` +
-      `اسأل الزبون عن التاريخ المطلوب، افحص التوفر بالأداة، اعرض الخيارات، وبعدين احجز بس بعد ما يأكد الزبون التاريخ والوقت والاسم ورقم التواصل.`
+      `عندك أدوات لفحص المواعيد المتاحة، حجز موعد، وإلغاء موعد — استخدمها دائمًا بدل ما تخمّن أو تفترض توفر أي وقت. ` +
+      `اسأل الزبون عن التاريخ المطلوب، افحص التوفر بالأداة، اعرض الخيارات، وبعدين احجز بس بعد ما يأكد الزبون التاريخ والوقت والاسم ورقم التواصل. ` +
+      `لو الزبون طلب يلغي موعد، اسأله عن التاريخ والوقت ورقم التواصل يلي حجز فيه (نفس التفاصيل الثلاثة يلي أكّدها وقت الحجز)، واستدعِ cancel_appointment — ` +
+      `ممنوع تقول "تم الإلغاء" قبل ما تستدعي الأداة فعليًا وترجع نجاح.`
     );
   }
 
@@ -126,6 +128,22 @@ function buildTools(client) {
             required: ["date", "time", "customer_name", "customer_phone"],
           },
         },
+      },
+      {
+        type: "function",
+        function: {
+          name: "cancel_appointment",
+          description: "يلغي موعد محجوز سابقًا، بمطابقة التاريخ والوقت ورقم التواصل يلي أكّدهم الزبون وقت الحجز",
+          parameters: {
+            type: "object",
+            properties: {
+              date: { type: "string", description: "YYYY-MM-DD" },
+              time: { type: "string", description: "HH:mm على أساس 24 ساعة" },
+              customer_phone: { type: "string" },
+            },
+            required: ["date", "time", "customer_phone"],
+          },
+        },
       }
     );
   }
@@ -160,19 +178,27 @@ function buildTools(client) {
 async function executeTool(client, userId, name, args) {
   try {
     if (name === "remember_customer_fact") {
-      customers.addFact(client.id, userId, args.fact);
+      await customers.addFact(client.id, userId, args.fact);
       return { success: true };
     }
     if (name === "check_availability") {
       return { date: args.date, freeSlots: appointments.getFreeSlots(client, args.date) };
     }
     if (name === "book_appointment") {
-      const record = appointments.bookAppointment(client, {
+      const record = await appointments.bookAppointment(client, {
         date: args.date,
         time: args.time,
         customerName: args.customer_name,
         customerPhone: args.customer_phone,
         note: args.note,
+      });
+      return { success: true, appointment: record };
+    }
+    if (name === "cancel_appointment") {
+      const record = await appointments.cancelAppointment(client, {
+        date: args.date,
+        time: args.time,
+        customerPhone: args.customer_phone,
       });
       return { success: true, appointment: record };
     }

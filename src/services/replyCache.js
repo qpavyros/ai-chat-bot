@@ -58,6 +58,17 @@ function set(clientId, message, reply) {
   });
 }
 
+// بيمسح كل عناصر عميل معيّن — لازم يُستدعى من أي مكان بيعدّل knowledge.md أو config.json
+// تبع العميل (راجع src/routes/admin.js). بدون هيك، تصحيح سعر غلط بالداشبورد كان ممكن يضل
+// البوت يعطي الجواب القديم الغلط لغاية TTL كامل (افتراضيًا 12 ساعة) — ثغرة حقيقية اكتُشفت
+// بمراجعة Opus (development-plan-20260809.md، طبقة 1، بند 8).
+function clear(clientId) {
+  const prefix = `${clientId}:`;
+  for (const key of store.keys()) {
+    if (key.startsWith(prefix)) store.delete(key);
+  }
+}
+
 // تنظيف دوري للعناصر منتهية الصلاحية — حتى ما تكبر الـMap بلا حدود بمفاتيح ميتة
 const cleanupTimer = setInterval(() => {
   const now = Date.now();
@@ -67,4 +78,4 @@ const cleanupTimer = setInterval(() => {
 }, 30 * 60 * 1000);
 cleanupTimer.unref();
 
-module.exports = { get, set };
+module.exports = { get, set, clear };

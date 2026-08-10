@@ -69,7 +69,7 @@ async function main() {
     const free = appointments.getFreeSlots(client, tomorrow);
     assert(free.length > 0, `ما في خانات فاضية بكرا (${tomorrow})`);
 
-    const record = appointments.bookAppointment(client, {
+    const record = await appointments.bookAppointment(client, {
       date: tomorrow,
       time: free[0],
       customerName: "SMOKE_TEST",
@@ -81,7 +81,17 @@ async function main() {
     const after = appointments.readAppointments("example-clinic");
     assert(after.length === before + 1, "الحجز ما انكتب فعليًا بالملف");
 
-    // تنظيف — نشيل حجز الفحص حتى ما يضل يحجب الخانة عن زبون حقيقي
+    const cancelled = await appointments.cancelAppointment(client, {
+      date: tomorrow,
+      time: free[0],
+      customerPhone: "0000000000",
+    });
+    assert(cancelled.status === "cancelled", "الإلغاء ما غيّر الحالة");
+
+    const freeAgain = appointments.getFreeSlots(client, tomorrow);
+    assert(freeAgain.includes(free[0]), "الخانة ما رجعت متاحة بعد الإلغاء");
+
+    // تنظيف — نشيل سطر حجز الفحص بالكامل حتى ما يضل الملف مليان سجلات اختبار قديمة
     const cleaned = after.filter((a) => a.id !== record.id);
     fs.writeFileSync(
       path.join(__dirname, "..", "data", "example-clinic", "appointments.json"),

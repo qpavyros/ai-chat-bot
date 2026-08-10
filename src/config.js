@@ -65,6 +65,14 @@ module.exports = {
     from: required("SMTP_FROM", "no-reply@example.com"),
   },
 
+  abuseGuard: {
+    // سقف عام (كل الخطط، مو بس trial) — كان ناقص تمامًا: عميل غير-تجريبي (مدفوع/يدوي) ما
+    // عنده أي حد أقصى، ومفتاح pk_ تبعه ظاهر بكود صفحته لأي حد يفتح devtools. حدا بيعمل loop
+    // عالـendpoint كان بيستهلك رصيد DeepSeek تبعك إنت بلا حدود. اكتشاف مراجعة Opus (طبقة 1، بند 10).
+    sessionHourlyMax: Number(required("SESSION_HOURLY_MSG_MAX", "30")),
+    clientDailyMax: Number(required("CLIENT_DAILY_MSG_MAX", "500")),
+  },
+
   admin: {
     // كلمة سر لوحة تحكم المشغّل (/admin) — مشغّل وحيد، فمقارنة نص ثابت (timing-safe) كافية.
     // لو فاضية، /admin بيرفض كل تسجيل دخول (فشل آمن، مو "مفتوح افتراضيًا").

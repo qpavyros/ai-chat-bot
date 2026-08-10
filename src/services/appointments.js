@@ -3,28 +3,17 @@
 //   workingHours: { start: "09:00", end: "17:00" }
 //   slotMinutes: 30
 //   offDays: [5]   // 0=أحد .. 6=سبت (JS Date.getDay())، مثلاً 5 = جمعة
+//
+// الحجز (bookAppointment) بيصير كامل جوا safeWrite.withClientLock — فحص التوفر والكتابة
+// بنفس القفل، حتى ما يصير حجز مزدوج لو زبونين طلبوا نفس الخانة بنفس اللحظة (كان ثغرة حقيقية:
+// فحص التوفر والكتابة كانوا عمليتين منفصلتين بدون قفل بينهم).
 
-const fs = require("fs");
-const path = require("path");
-const { todayInBeirut } = require("./date-utils");
-const { safeId } = require("./safe-id");
-
-const DATA_DIR = path.join(__dirname, "..", "..", "data");
-
-function dataFilePath(clientId) {
-  return path.join(DATA_DIR, safeId(clientId), "appointments.json");
-}
+const safeWrite = require("./safeWrite");
+const { todayInBeirut, nowInBeirut } = require("./date-utils");
 
 function readAppointments(clientId) {
-  const file = dataFilePath(clientId);
-  if (!fs.existsSync(file)) return [];
-  return JSON.parse(fs.readFileSync(file, "utf8"));
-}
-
-function writeAppointments(clientId, appointments) {
-  const file = dataFilePath(clientId);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(appointments, null, 2), "utf8");
+  const file = require("path").join(safeWrite.dataDir(clientId), "appointments.json");
+  return safeWrite.safeReadJSON(file, []);
 }
 
 function isValidDate(dateStr) {
@@ -58,46 +47,87 @@ function generateSlots(client) {
   return slots;
 }
 
-function getFreeSlots(client, dateStr) {
-  if (!isValidDate(dateStr)) throw new Error("تاريخ غير صحيح، الصيغة المطلوبة YYYY-MM-DD");
-
+// منطق القراءة الفعلي — بدون قفل، يُستخدم من getFreeSlots (قراءة عابرة، ما بتحتاج قفل)
+// ومن bookAppointment (لازم يصير جوا القفل، فبيستدعي هاد مباشرة مش getFreeSlots).
+function computeFreeSlots(client, dateStr) {
   const offDays = client.appointments.offDays || [];
   if (offDays.includes(dayOfWeek(dateStr))) return [];
-
   if (dateStr < todayInBeirut()) return [];
 
-  const allSlots = generateSlots(client);
+  let allSlots = generateSlots(client);
+
+  // اليوم نفسه: خانات الوقت يلي مضت ما لازم تظهر متاحة — كانت ثغرة حقيقية (بوت عيادة كان
+  // يعرض موعد الساعة ٩ الصبح وقت العصر). هامش ساعة قبل أي خانة حتى ما نعرض حجز بعد ٥ دقايق.
+  if (dateStr === todayInBeirut()) {
+    const { hours, minutes } = nowInBeirut();
+    const nowMinutes = hours * 60 + minutes;
+    allSlots = allSlots.filter((slot) => minutesSinceMidnight(slot) > nowMinutes + 60);
+  }
+
   const booked = readAppointments(client.id)
-    .filter((a) => a.date === dateStr)
+    .filter((a) => a.date === dateStr && a.status !== "cancelled")
     .map((a) => a.time);
 
   return allSlots.filter((slot) => !booked.includes(slot));
 }
 
-function bookAppointment(client, { date, time, customerName, customerPhone, note }) {
+function getFreeSlots(client, dateStr) {
+  if (!isValidDate(dateStr)) throw new Error("تاريخ غير صحيح، الصيغة المطلوبة YYYY-MM-DD");
+  return computeFreeSlots(client, dateStr);
+}
+
+async function bookAppointment(client, { date, time, customerName, customerPhone, note }) {
   if (!isValidDate(date)) throw new Error("تاريخ غير صحيح، الصيغة المطلوبة YYYY-MM-DD");
   if (!isValidTime(time)) throw new Error("وقت غير صحيح، الصيغة المطلوبة HH:mm");
   if (!customerName || !customerPhone) throw new Error("اسم ورقم الزبون مطلوبين");
 
-  const free = getFreeSlots(client, date);
-  if (!free.includes(time)) {
-    throw new Error(`الوقت ${time} بتاريخ ${date} غير متاح. المتاح: ${free.join(", ") || "لا يوجد مواعيد متاحة هالتاريخ"}`);
-  }
+  return safeWrite.withClientLock(client.id, () => {
+    // الفحص والكتابة جوا نفس القفل — هاد يلي بيمنع الحجز المزدوج فعليًا
+    const free = computeFreeSlots(client, date);
+    if (!free.includes(time)) {
+      throw new Error(
+        `الوقت ${time} بتاريخ ${date} غير متاح. المتاح: ${free.join(", ") || "لا يوجد مواعيد متاحة هالتاريخ"}`
+      );
+    }
 
-  const appointments = readAppointments(client.id);
-  const record = {
-    id: `${date}-${time}-${Date.now()}`,
-    date,
-    time,
-    customerName,
-    customerPhone,
-    note: note || "",
-    createdAt: new Date().toISOString(),
-  };
-  appointments.push(record);
-  writeAppointments(client.id, appointments);
+    const appointments = readAppointments(client.id);
+    const record = {
+      id: `${date}-${time}-${Date.now()}`,
+      date,
+      time,
+      customerName,
+      customerPhone,
+      note: note || "",
+      status: "confirmed",
+      createdAt: new Date().toISOString(),
+    };
+    appointments.push(record);
+    safeWrite.rawWriteDataFile(client.id, "appointments.json", JSON.stringify(appointments, null, 2));
 
-  return record;
+    return record;
+  });
 }
 
-module.exports = { getFreeSlots, bookAppointment, readAppointments };
+// إلغاء بالبحث عن تاريخ+وقت+رقم تواصل — البوت ما بيعرف الـid الداخلي للموعد (ما ظهرله أبدًا
+// بالمحادثة)، بس نفس التفاصيل الثلاثة يلي أكّدها الزبون وقت الحجز هي يلي بيقدر يرجّعها.
+async function cancelAppointment(client, { date, time, customerPhone }) {
+  if (!isValidDate(date)) throw new Error("تاريخ غير صحيح، الصيغة المطلوبة YYYY-MM-DD");
+  if (!isValidTime(time)) throw new Error("وقت غير صحيح، الصيغة المطلوبة HH:mm");
+  if (!customerPhone) throw new Error("رقم تواصل الزبون مطلوب لتأكيد أي موعد نلغيه");
+
+  return safeWrite.withClientLock(client.id, () => {
+    const appointments = readAppointments(client.id);
+    const record = appointments.find(
+      (a) => a.date === date && a.time === time && a.customerPhone === customerPhone && a.status !== "cancelled"
+    );
+    if (!record) throw new Error(`ما في موعد فعّال بتاريخ ${date} الساعة ${time} برقم التواصل هذا`);
+
+    record.status = "cancelled";
+    record.cancelledAt = new Date().toISOString();
+    safeWrite.rawWriteDataFile(client.id, "appointments.json", JSON.stringify(appointments, null, 2));
+
+    return record;
+  });
+}
+
+module.exports = { getFreeSlots, bookAppointment, cancelAppointment, readAppointments };

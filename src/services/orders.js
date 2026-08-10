@@ -1,29 +1,19 @@
 // تسجيل طلبات منتجات (مش مواعيد) — مخزّن بملف JSON لكل عميل، وبيبعت إشعار واتساب فوري
 // لصاحب المحل، بنفس نمط appointments.js وhandoff.js. الهدف: البوت ما يوعد الزبون بـ"تم الحجز"
 // إلا بعد ما فعليًا يصير أثر مكتوب بمكان ما، وصاحب المحل يعرف فيه طلبية جديدة بلحظتها.
+//
+// القراءة+الكتابة بتصير جوا safeWrite.withClientLock (بنفس القفل يلي appointments.js/customers.js
+// عم يستخدموه لهيك العميل) — إشعار واتساب بيصير برا القفل عمدًا (نداء شبكة، ما في داعي يعطّل
+// كتابات تانية لنفس العميل وقت ما بينتظر رد Meta).
 
-const fs = require("fs");
 const path = require("path");
 const config = require("../config");
 const whatsapp = require("./whatsapp");
-const { safeId } = require("./safe-id");
-
-const DATA_DIR = path.join(__dirname, "..", "..", "data");
-
-function dataFilePath(clientId) {
-  return path.join(DATA_DIR, safeId(clientId), "orders.json");
-}
+const safeWrite = require("./safeWrite");
 
 function readOrders(clientId) {
-  const file = dataFilePath(clientId);
-  if (!fs.existsSync(file)) return [];
-  return JSON.parse(fs.readFileSync(file, "utf8"));
-}
-
-function writeOrders(clientId, orders) {
-  const file = dataFilePath(clientId);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(orders, null, 2), "utf8");
+  const file = path.join(safeWrite.dataDir(clientId), "orders.json");
+  return safeWrite.safeReadJSON(file, []);
 }
 
 async function notifyBusinessOwner(client, record) {
@@ -58,21 +48,24 @@ async function createOrder(client, { items, totalPrice, deliveryMethod, delivery
   if (deliveryMethod === "delivery" && !deliveryAddress) throw new Error("عنوان التوصيل مطلوب لطلبات التوصيل");
   if (!paymentMethod) throw new Error("طريقة الدفع مطلوبة");
 
-  const orders = readOrders(client.id);
-  const record = {
-    id: `order-${Date.now()}`,
-    items,
-    totalPrice,
-    deliveryMethod,
-    deliveryAddress: deliveryAddress || "",
-    paymentMethod,
-    customerName,
-    customerPhone,
-    note: note || "",
-    createdAt: new Date().toISOString(),
-  };
-  orders.push(record);
-  writeOrders(client.id, orders);
+  const record = await safeWrite.withClientLock(client.id, () => {
+    const orders = readOrders(client.id);
+    const newRecord = {
+      id: `order-${Date.now()}`,
+      items,
+      totalPrice,
+      deliveryMethod,
+      deliveryAddress: deliveryAddress || "",
+      paymentMethod,
+      customerName,
+      customerPhone,
+      note: note || "",
+      createdAt: new Date().toISOString(),
+    };
+    orders.push(newRecord);
+    safeWrite.rawWriteDataFile(client.id, "orders.json", JSON.stringify(orders, null, 2));
+    return newRecord;
+  });
 
   await notifyBusinessOwner(client, record);
 

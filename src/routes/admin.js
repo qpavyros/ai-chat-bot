@@ -8,7 +8,9 @@ const config = require("../config");
 const adminAuth = require("../services/adminAuth");
 const safeWrite = require("../services/safeWrite");
 const auditLog = require("../services/auditLog");
+const replyCache = require("../services/replyCache");
 const provisioning = require("../services/provisioning");
+const apiKeys = require("../services/apiKeys");
 const { validateClientConfig } = require("../services/clientConfigSchema");
 
 const router = express.Router();
@@ -183,18 +185,22 @@ router.post("/admin/api/clients", requireAuth, express.json(), (req, res) => {
   const schemaError = validateClientConfig(cfg);
   if (schemaError) return res.status(400).json({ error: schemaError });
 
+  // pk_ فورًا وقت الإنشاء — قبل كان يترك null، يعني كل عميل جديد يعتمد بالكامل على
+  // WEB_WIDGET_KEY المشترك القديم لحد ما حدا يتذكر يشغّل npm run key يدويًا (نادرًا ما بيصير).
+  const publicKey = apiKeys.generatePublicKey();
+
   try {
     safeWrite.createClientDirAtomic(slug, {
       "config.json": JSON.stringify(cfg, null, 2),
       "knowledge.md": knowledgeText || `# قاعدة معرفة — ${companyName}\n\n(لسا فاضية — عدّلها من هون أو من الملف مباشرة)\n`,
-      "auth.json": JSON.stringify({ publicKey: null, apiKeys: [] }, null, 2),
+      "auth.json": JSON.stringify({ publicKey, apiKeys: [] }, null, 2),
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 
   auditLog.record("create_client", slug, { companyName });
-  res.status(201).json({ id: slug });
+  res.status(201).json({ id: slug, publicKey });
 });
 
 router.put("/admin/api/clients/:id", requireAuth, express.json(), async (req, res) => {
@@ -212,6 +218,7 @@ router.put("/admin/api/clients/:id", requireAuth, express.json(), async (req, re
     return res.status(500).json({ error: err.message });
   }
 
+  replyCache.clear(id);
   auditLog.record("update_config", id, { fields: Object.keys(req.body || {}) });
   res.json({ ok: true });
 });
@@ -227,6 +234,7 @@ router.put("/admin/api/clients/:id/knowledge", requireAuth, express.json({ limit
     return res.status(500).json({ error: err.message });
   }
 
+  replyCache.clear(id);
   auditLog.record("update_knowledge", id, { chars: content.length });
   res.json({ ok: true });
 });
@@ -250,6 +258,7 @@ router.post("/admin/api/clients/:id/renew", requireAuth, express.json(), async (
     return res.status(500).json({ error: err.message });
   }
 
+  replyCache.clear(id);
   auditLog.record("renew", id, { expiresAt, status });
   res.json({ ok: true });
 });

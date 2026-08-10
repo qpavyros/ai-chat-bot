@@ -266,7 +266,7 @@ router.post("/signup/preview-chat", requireSignupToken, async (req, res) => {
     // الفعلية، رد من كاش (حتى لو صحيح) بيعطي انطباع كاذب إنه اختبر النموذج مباشرة.
     const { text: rawReply } = await deepseek.getReply(client, profile, message);
     const { cleanText } = handoff.extractEscalationMarker(rawReply);
-    customers.saveTurn(client.id, previewUserId, message, cleanText);
+    await customers.saveTurn(client.id, previewUserId, message, cleanText);
     res.json({ reply: cleanText });
   } catch (err) {
     console.error("[signup] فشل معاينة الشات:", err.response?.data || err.message);

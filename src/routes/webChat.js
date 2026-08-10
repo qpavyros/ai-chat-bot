@@ -32,13 +32,30 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
       }
     }
 
+    // سقف عام لكل الخطط (مش بس trial) — يحمي من إساءة استخدام حقيقية (loop عالـendpoint،
+    // مفتاح pk_ مسروق من كود الصفحة) بغض النظر عن نوع العميل. حدّين: لكل جلسة (ساعة)، ولكل عميل (يوم).
+    const sessionUsage = rateLimit.checkLimit(`session-msgs:${client.id}:${sessionId}`, {
+      max: config.abuseGuard.sessionHourlyMax,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!sessionUsage.allowed) {
+      return res.status(429).json({ error: { code: "rate_limited", message: "رسائل كتير بوقت قصير — جرب بعد شوي" } });
+    }
+    const clientDailyUsage = rateLimit.checkLimit(`client-daily-msgs:${client.id}`, {
+      max: config.abuseGuard.clientDailyMax,
+      windowMs: 24 * 60 * 60 * 1000,
+    });
+    if (!clientDailyUsage.allowed) {
+      return res.status(429).json({ error: { code: "rate_limited", message: "وصلنا لسقف الرسائل اليومي — جرب بكرا" } });
+    }
+
     if (handoff.isConversationPaused(client.id, sessionId)) {
       return res.json({ reply: handoff.buildStillWaitingReply(client) });
     }
 
     if (handoff.checkKeywordEscalation(message)) {
       const reply = handoff.buildEscalationReply(client);
-      customers.saveTurn(client.id, sessionId, message, reply);
+      await customers.saveTurn(client.id, sessionId, message, reply);
       await handoff.handleEscalation(client, { channel: "web", endUserId: sessionId, lastMessage: message });
       return res.json({ reply });
     }
@@ -50,14 +67,14 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
 
     const cachedReply = cacheable ? replyCache.get(client.id, message) : null;
     if (cachedReply) {
-      customers.saveTurn(client.id, sessionId, message, cachedReply);
+      await customers.saveTurn(client.id, sessionId, message, cachedReply);
       return res.json({ reply: cachedReply });
     }
 
     const { text: rawReply, toolsUsed } = await deepseek.getReply(client, profile, message);
     const { escalated, cleanText } = handoff.extractEscalationMarker(rawReply);
 
-    customers.saveTurn(client.id, sessionId, message, cleanText);
+    await customers.saveTurn(client.id, sessionId, message, cleanText);
 
     // ما نخزّن إلا رد "نظيف": زبون أول-تواصل + بدون استخدام أداة (حجز/فحص توفر/تذكّر معلومة) +
     // بدون تصعيد — أي واحدة من هالثلاثة بتعني الرد مرتبط بلحظة/زبون معيّن، مو جواب FAQ عام.
