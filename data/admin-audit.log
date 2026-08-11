@@ -4,3 +4,7 @@
 {"at":"2026-08-09T16:21:56.765Z","action":"login","clientId":null,"details":{"ip":"91.92.115.159"}}
 {"at":"2026-08-09T16:22:41.343Z","action":"create_client","clientId":"client-ec1436","details":{"companyName":"أيوب كمبيوتر"}}
 {"at":"2026-08-09T17:29:39.022Z","action":"update_knowledge","clientId":"client-ec1436","details":{"chars":1995}}
+{"at":"2026-08-10T19:15:23.543Z","action":"login_failed","clientId":null,"details":{"ip":"::1"}}
+{"at":"2026-08-10T19:15:23.547Z","action":"login","clientId":null,"details":{"ip":"::1"}}
+{"at":"2026-08-10T19:33:22.631Z","action":"login_failed","clientId":null,"details":{"ip":"::1"}}
+{"at":"2026-08-10T19:33:22.635Z","action":"login","clientId":null,"details":{"ip":"::1"}}

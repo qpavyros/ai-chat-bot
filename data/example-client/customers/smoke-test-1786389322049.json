@@ -1,0 +1,17 @@
+{
+  "userId": "smoke-test-1786389322049",
+  "firstSeenAt": "2026-08-10T19:15:23.510Z",
+  "lastMessage": "مرحبا",
+  "lastMessageAt": "2026-08-10T19:15:23.510Z",
+  "history": [
+    {
+      "role": "user",
+      "content": "مرحبا"
+    },
+    {
+      "role": "assistant",
+      "content": "أهلين فيك! كيف فيني ساعدك اليوم؟ 😊"
+    }
+  ],
+  "facts": []
+}

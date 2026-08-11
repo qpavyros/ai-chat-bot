@@ -1,0 +1,12 @@
+[
+  {
+    "id": "2026-08-11-09:00-1786390402626",
+    "date": "2026-08-11",
+    "time": "09:00",
+    "customerName": "SMOKE_TEST",
+    "customerPhone": "0000000000",
+    "note": "smoke-test — احذفه لو شفته",
+    "status": "confirmed",
+    "createdAt": "2026-08-10T19:33:22.626Z"
+  }
+]
