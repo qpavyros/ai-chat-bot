@@ -8,3 +8,5 @@
 {"at":"2026-08-10T19:15:23.547Z","action":"login","clientId":null,"details":{"ip":"::1"}}
 {"at":"2026-08-10T19:33:22.631Z","action":"login_failed","clientId":null,"details":{"ip":"::1"}}
 {"at":"2026-08-10T19:33:22.635Z","action":"login","clientId":null,"details":{"ip":"::1"}}
+{"at":"2026-08-12T10:11:46.886Z","action":"login","clientId":null,"details":{"ip":"::ffff:127.0.0.1"}}
+{"at":"2026-08-12T13:28:12.368Z","action":"login","clientId":null,"details":{"ip":"::ffff:127.0.0.1"}}
