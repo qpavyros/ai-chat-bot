@@ -1,0 +1,17 @@
+{
+  "pendingId": "a8722d5fc88a810018f56c16",
+  "companyName": "dukkanatek",
+  "contactEmail": "Issam.abiad366@gmail.com",
+  "notifyWhatsapp": "+96181956972",
+  "escalationPhone": "+96181956972",
+  "websiteUrl": "http://exampel.com/",
+  "status": "completed",
+  "verifyTokenHash": "3928129dcbd7b473c0397d7b8ab4cb96e4ed173932a14adc146e414ca0fcb716",
+  "verifyTokenExpiresAt": "2026-08-14T19:52:47.894Z",
+  "signupTokenHash": "a217e218ed867720397e7e592029d6144694d7fe2c7fe3c35e76dd2fe28d43e0",
+  "signupTokenExpiresAt": "2026-08-14T19:53:24.916Z",
+  "clientId": "dukkanatek",
+  "publicKey": "pk_S0y1jy7r7-1G7Ug7srTu-Wtf",
+  "knowledgeAttempts": 1,
+  "createdAt": "2026-08-13T19:52:47.894Z"
+}

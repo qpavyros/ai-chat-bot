@@ -1,0 +1,25 @@
+{
+  "id": "dukkanatek",
+  "displayName": "dukkanatek",
+  "language": "ar-LB",
+  "tone": "مهذب، واضح، جمل قصيرة، ما بيوعد بشي مش أكيد منه",
+  "escalation": {
+    "phone": "+96181956972",
+    "contactMethod": "التواصل مع فريق dukkanatek مباشرة",
+    "notifyWhatsapp": "+96181956972"
+  },
+  "contactEmail": "Issam.abiad366@gmail.com",
+  "allowedOrigins": [
+    "http://exampel.com"
+  ],
+  "status": "active",
+  "plan": "trial",
+  "knowledgeReviewed": false,
+  "createdAt": "2026-08-13T19:54:05.363Z",
+  "trialExpiresAt": "2026-08-27T19:54:07.032Z",
+  "source": {
+    "type": "csv",
+    "value": "wa-test-knowledge.csv",
+    "ingestedAt": "2026-08-13T19:54:05.362Z"
+  }
+}
