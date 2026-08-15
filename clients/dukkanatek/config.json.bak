@@ -21,8 +21,5 @@
     "type": "csv",
     "value": "wa-test-knowledge.csv",
     "ingestedAt": "2026-08-13T19:54:05.362Z"
-  },
-  "whatsappPhoneNumberId": "1281413571719433",
-  "whatsappBusinessAccountId": "1507913894354683",
-  "whatsappRegistrationPin": "937300"
+  }
 }
