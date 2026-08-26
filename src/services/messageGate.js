@@ -13,6 +13,7 @@ const rateLimit = require("./rateLimit");
 const usageLedger = require("./usageLedger");
 const usageAnomaly = require("./usageAnomaly");
 const credits = require("./credits");
+const handoff = require("./handoff");
 
 const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MONTHLY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -49,6 +50,15 @@ function evaluateStatic(client, channel) {
   return { allowed: true };
 }
 
+// إشعار صاحب البوت مرة وحدة باليوم بالحد الأقصى — بدون هيك كل رسالة زبون مرفوضة بعد الحد
+// كانت رح تبعت واتساب لصاحب البوت (سبام حقيقي بيوم مزدحم).
+function notifyCapReachedOncePerDay(client, reason) {
+  const gate = rateLimit.checkLimit(`cap-notify:${client.id}:${reason}`, { max: 1, windowMs: DAILY_WINDOW_MS });
+  if (gate.allowed) {
+    handoff.notifyCapReached(client, reason).catch(() => {});
+  }
+}
+
 /**
  * عدادات الاستهلاك + السقوف — استدعيها فقط قبل استدعاء DeepSeek فعليًا.
  * ⚠️ فيها آثار جانبية (زيادة عدادات) — نداء ثانٍ لنفس الرسالة بيعدّ مرتين.
@@ -68,6 +78,7 @@ async function meterAndCap(client, channel, sessionId = null) {
       if (await credits.consumeOne(client.id)) {
         return { allowed: true, usedCredit: true };
       }
+      notifyCapReachedOncePerDay(client, "trial_cap");
       return { allowed: false, reason: "trial_cap" };
     }
   }
@@ -102,6 +113,7 @@ async function meterAndCap(client, channel, sessionId = null) {
       if (await credits.consumeOne(client.id)) {
         return { allowed: true, usedCredit: true };
       }
+      notifyCapReachedOncePerDay(client, "monthly_cap");
       return { allowed: false, reason: "monthly_cap" };
     }
   }

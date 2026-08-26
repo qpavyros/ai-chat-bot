@@ -55,6 +55,7 @@ async function buildBotSummary(clientId) {
     plan: cfg.plan || "manual",
     messagesThisPeriod: usage.count || 0,
     messagesCap: cap,
+    topUpCreditsRemaining: cfg.topUpCreditsRemaining || 0,
     conversationsThisPeriod: countConversationsThisMonth(clientId),
   };
 }

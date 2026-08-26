@@ -89,6 +89,10 @@ router.get("/dashboard/bots/:clientId/api/summary", requireUserAuth, requireOwne
     },
     messagesThisPeriod: usage.count || 0,
     messagesCap: cap,
+    tier: cfg.tier || null,
+    plan: cfg.plan || "manual",
+    plans: config.plans,
+    topUpPacks: config.topUpPacks,
     topUpCreditsRemaining: cfg.topUpCreditsRemaining || 0,
     voice: {
       enabled: cfg.voice?.enabled !== false,
@@ -159,6 +163,48 @@ router.post("/dashboard/bots/:clientId/api/settings", requireUserAuth, requireOw
   }
 
   await safeWrite.safeWriteJSON(req.clientId, "config.json", updated, { validate: validateClientConfig });
+  res.json({ ok: true });
+}));
+
+// ===== طلب ترقية باقة أو شراء رصيد شحن — بدون بوابة دفع فعلياً، فقط بيبعت طلب لصاحب
+// النظام عبر واتساب ليتواصل ويتمّم الدفع يدويًا (نفس أسلوب الفوترة الحالي بالمشروع) =====
+router.post("/dashboard/bots/:clientId/api/billing-request", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
+  const { kind, target } = req.body || {};
+  const cfg = req.clientConfig;
+
+  let details;
+  if (kind === "upgrade") {
+    const plan = config.plans[target];
+    if (!plan) {
+      return res.status(400).json({ error: { code: "invalid_plan", message: "باقة غير معروفة" } });
+    }
+    details = `ترقية للباقة "${target}" ($${plan.price}/شهر — ${plan.monthlyMessageCap} رسالة)`;
+  } else if (kind === "topup") {
+    const pack = config.topUpPacks[target];
+    if (!pack) {
+      return res.status(400).json({ error: { code: "invalid_pack", message: "باقة شحن غير معروفة" } });
+    }
+    details = `شحن رصيد "${target}" (${pack.credits} رسالة — $${pack.priceUsd})`;
+  } else {
+    return res.status(400).json({ error: { code: "invalid_kind", message: "kind لازم يكون upgrade أو topup" } });
+  }
+
+  auditLog.record("billing_request", req.clientId, { kind, target, byUser: req.uid });
+
+  if (config.provisioning.operatorWhatsapp && config.whatsapp.notifySenderPhoneNumberId) {
+    const whatsapp = require("../services/whatsapp");
+    const text =
+      `💳 طلب فوترة جديد\n` +
+      `البوت: ${cfg.displayName} (${req.clientId})\n` +
+      `الباقة الحالية: ${cfg.tier || cfg.plan || "—"}\n` +
+      `الطلب: ${details}\n` +
+      `إيميل التواصل: ${cfg.contactEmail || "—"}\n` +
+      `واتساب: ${cfg.escalation?.notifyWhatsapp || "—"}`;
+    whatsapp
+      .sendTextMessage(config.provisioning.operatorWhatsapp, config.whatsapp.notifySenderPhoneNumberId, text)
+      .catch((err) => console.error("[billing-request] فشل إشعار المشغّل:", err.response?.data || err.message));
+  }
+
   res.json({ ok: true });
 }));
 

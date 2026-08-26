@@ -221,6 +221,106 @@
       .catch(function () { box.innerHTML = '<p class="text-sm text-on-surface-variant">ما قدرنا نجيب التقارير هلق.</p>'; });
   }
 
+  function barColor(pct) {
+    if (pct >= 100) return "bg-error";
+    if (pct >= 90) return "bg-[#eab308]";
+    return "bg-[#059669]";
+  }
+
+  function renderBillingSection() {
+    var cap = state.messagesCap;
+    var used = state.messagesThisPeriod;
+    var pct = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
+    var credits = state.topUpCreditsRemaining || 0;
+
+    var banner = "";
+    if (cap && pct >= 100 && credits <= 0) {
+      banner = '<div class="banner danger">⛔ خلصت سقف رسائلك — البوت هلق بيرد على زبائنك برد تحويل عام بدل رد ذكي، لحد ما ترقّي أو تشتري رصيد.</div>';
+    } else if (cap && pct >= 100 && credits > 0) {
+      banner = '<div class="banner danger">⚡ خلصت السقف الأساسي، وعم تستهلك من رصيد الشحن (' + esc(credits) + ' رسالة متبقية).</div>';
+    } else if (cap && pct >= 90) {
+      banner = '<div class="banner" style="background:#fff2df; color:#8a5300;">⚠️ قربت توصل لسقف باقتك الشهري (' + esc(used) + ' / ' + esc(cap) + ').</div>';
+    }
+
+    var plans = state.plans || {};
+    var currentTier = state.tier;
+    var upgradeOptions = Object.keys(plans)
+      .filter(function (key) { return key !== currentTier; })
+      .map(function (key) {
+        var p = plans[key];
+        return '<option value="' + key + '">' + key + " — $" + p.price + "/شهر (" + p.monthlyMessageCap + " رسالة)</option>";
+      }).join("");
+
+    var packs = state.topUpPacks || {};
+    var topUpOptions = Object.keys(packs).map(function (key) {
+      var p = packs[key];
+      return '<option value="' + key + '">' + p.credits + " رسالة — $" + p.priceUsd + "</option>";
+    }).join("");
+
+    return (
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">payments</span>باقتك واستهلاكك</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-5">لو حسّيت البوت وقف يرد بذكاء على زبائنك، هالمكان بيوريك ليش وشو تعمل.</p>' +
+      '<div id="billing-banner">' + banner + '</div>' +
+      (cap
+        ? '<div class="flex justify-between text-label-sm mb-2 text-on-surface-variant"><span>استهلاك الرسائل هالفترة</span><span class="' + (pct >= 90 ? "text-error font-bold" : "text-on-surface") + '">' + esc(used) + ' / ' + esc(cap) + '</span></div>' +
+          '<div class="w-full bg-surface-container h-2.5 rounded-full overflow-hidden mb-1"><div class="' + barColor(pct) + ' h-full rounded-full" style="width:' + pct + '%;"></div></div>'
+        : '') +
+      (credits > 0 ? '<p class="text-xs text-on-surface-variant mt-2">⚡ رصيد شحن متبقي: ' + esc(credits) + ' رسالة</p>' : '') +
+      '<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6 pt-6 border-t border-outline-variant">' +
+      '<div>' +
+      '<label class="field-label" for="upgrade-plan-select">🔼 ترقية الباقة</label>' +
+      (upgradeOptions
+        ? '<select id="upgrade-plan-select" class="field-input mb-3"><option value="">اختر باقة</option>' + upgradeOptions + '</select>' +
+          '<button type="button" class="w-full bg-primary text-on-primary text-label-md px-4 py-2.5 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2" id="upgrade-request-btn"><span class="spinner"></span><span class="btn-text">اطلب ترقية</span></button>'
+        : '<p class="text-sm text-on-surface-variant">إنت أصلاً على أعلى باقة.</p>') +
+      '</div>' +
+      '<div>' +
+      '<label class="field-label" for="topup-pack-select">⚡ اشتري رصيد رسائل إضافي</label>' +
+      '<p class="text-xs text-on-surface-variant mb-2">سعر الرسالة هون أعلى من سعرها بالباقة عمدًا — الاشتراك يضل الخيار الأذكى ماديًا.</p>' +
+      '<select id="topup-pack-select" class="field-input mb-3">' + topUpOptions + '</select>' +
+      '<button type="button" class="w-full bg-secondary text-on-secondary text-label-md px-4 py-2.5 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2" id="topup-request-btn"><span class="spinner"></span><span class="btn-text">اطلب شحن رصيد</span></button>' +
+      '</div>' +
+      '</div>' +
+      '</section>'
+    );
+  }
+
+  function wireBilling() {
+    function sendRequest(kind, target, btn) {
+      var banner = document.getElementById("billing-banner");
+      if (!target) return;
+      setLoading(btn, true);
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/billing-request", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: kind, target: target }),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (res) {
+          if (res.status !== 200) {
+            banner.innerHTML = '<div class="banner danger">' + esc((res.body.error && res.body.error.message) || "صار خطأ") + '</div>';
+            return;
+          }
+          banner.innerHTML = '<div class="banner success">✔ تم إرسال طلبك — رح نتواصل معك خلال ساعات لإتمام الدفع.</div>';
+        })
+        .catch(function () { banner.innerHTML = '<div class="banner danger">ما قدرنا نوصل للسيرفر.</div>'; })
+        .finally(function () { setLoading(btn, false); });
+    }
+
+    var upgradeBtn = document.getElementById("upgrade-request-btn");
+    if (upgradeBtn) {
+      upgradeBtn.addEventListener("click", function () {
+        sendRequest("upgrade", document.getElementById("upgrade-plan-select").value, upgradeBtn);
+      });
+    }
+    var topupBtn = document.getElementById("topup-request-btn");
+    if (topupBtn) {
+      topupBtn.addEventListener("click", function () {
+        sendRequest("topup", document.getElementById("topup-pack-select").value, topupBtn);
+      });
+    }
+  }
+
   function render() {
     document.getElementById("loading").style.display = "none";
     var content = document.getElementById("content");
@@ -246,6 +346,8 @@
       (voiceLine ? '<p class="text-on-surface-variant text-xs">' + esc(voiceLine) + '</p>' : '') + '</div>' +
       statusBadge +
       '</div>' +
+
+      renderBillingSection() +
 
       '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
       '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">monitoring</span>تقارير البوت</h2>' +
@@ -398,6 +500,7 @@
 
     content.style.display = "block";
 
+    wireBilling();
     wireInfoForm();
     wireKnowledgeUpload();
     wireChannelToggles();

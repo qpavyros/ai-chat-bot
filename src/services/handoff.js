@@ -57,6 +57,28 @@ async function notifyBusinessOwner(client, { channel, endUserId, lastMessage }) 
   }
 }
 
+// بينادى من messageGate.js لما trial_cap/monthly_cap يمنع رسالة (مش أكتر من مرة/يوم لكل
+// عميل، الحد بيصير بمستوى rateLimit بملف الاستدعاء) — صاحب البوت لازم يعرف ليرقّي أو يشحن
+// رصيد قبل ما يخسر زبائن، مش يكتشف بالصدفة لما يفتح الداشبورد.
+async function notifyCapReached(client, reason) {
+  const notifyTo = client.escalation?.notifyWhatsapp;
+  const senderPhoneNumberId = client.whatsappPhoneNumberId || config.whatsapp.notifySenderPhoneNumberId;
+  if (!notifyTo || !senderPhoneNumberId) return;
+
+  const label = reason === "trial_cap" ? "الفترة التجريبية" : "باقتك الشهرية";
+  const text =
+    `⚠️ ${client.displayName}: خلّصت سقف رسائل ${label}.\n` +
+    `زبائنك هلق عم يوصلهم رد تحويل عام بدل رد البوت. ` +
+    `افتح لوحة التحكم لترقية الباقة أو شراء رصيد رسائل إضافي:\n` +
+    `${config.provisioning.publicBaseUrl}/dashboard/bots/${client.id}`;
+
+  try {
+    await whatsapp.sendTextMessage(notifyTo, senderPhoneNumberId, text);
+  } catch (err) {
+    console.error("[handoff] فشل إشعار وصول سقف الرسائل:", err.response?.data || err.message);
+  }
+}
+
 // يُستدعى قبل استدعاء DeepSeek — تصعيد فوري بكلمة مفتاحية بدون استهلاك API
 function checkKeywordEscalation(userText) {
   return matchesKeyword(userText);
@@ -100,4 +122,5 @@ module.exports = {
   buildEscalationReply,
   buildStillWaitingReply,
   buildServiceIssueReply,
+  notifyCapReached,
 };

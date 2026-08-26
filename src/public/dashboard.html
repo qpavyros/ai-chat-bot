@@ -182,6 +182,13 @@
           ? '<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden"><div class="' + barColor(botPct) + ' h-full rounded-full" style="width:' + botPct + '%;"></div></div>'
           : "") +
         '<p class="text-label-sm text-on-surface-variant mt-3">' + bot.conversationsThisPeriod + " محادثة جديدة (٣٠ يوم)</p>" +
+        (bot.messagesCap && botPct >= 90
+          ? '<p class="text-label-sm mt-2 font-medium" style="color:' + (botPct >= 100 && !bot.topUpCreditsRemaining ? "#ba1a1a" : "#8a5300") + ';">' +
+            (botPct >= 100
+              ? (bot.topUpCreditsRemaining ? "⚡ عم يشتغل برصيد الشحن" : "⛔ خلصت الباقة — رقّي أو اشحن رصيد")
+              : "⚠️ قربت توصل لسقف الباقة") +
+            "</p>"
+          : "") +
         "</div>" +
         '<a href="/dashboard/bots/' + encodeURIComponent(bot.clientId) + '" class="w-full bg-surface-container-low border border-outline-variant text-on-surface text-label-md py-3 rounded-lg hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2" style="text-decoration:none;">' +
         '<span class="material-symbols-outlined text-[18px]">settings</span>إدارة البوت</a>' +
