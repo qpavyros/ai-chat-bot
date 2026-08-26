@@ -129,9 +129,29 @@ async function main() {
   });
 
   console.log(`\n${passed} نجح، ${failed} فشل`);
+  cleanupSmokeProfiles();
   // process.exitCode بدل process.exit() — الأخيرة بتقطع event loop بقوة وبتصطدم أحيانًا
   // بمشكلة معروفة بـNode على Windows (assertion crash بمقابض async معلّقة من fetch/keep-alive).
   process.exitCode = failed > 0 ? 1 : 0;
+}
+
+// جلسات الشات التجريبية بتترك ملف زبون دائم لكل تشغيلة (smoke-test-*.json تحت
+// data/example-client/customers/) — مننظفهن هون حتى ما يتراكمن للأبد ويشوشن الأرقام.
+function cleanupSmokeProfiles() {
+  const customersDir = path.join(__dirname, "..", "data", "example-client", "customers");
+  if (!fs.existsSync(customersDir)) return;
+  let removed = 0;
+  try {
+    for (const file of fs.readdirSync(customersDir)) {
+      if (file.startsWith("smoke-test-") && file.endsWith(".json")) {
+        fs.unlinkSync(path.join(customersDir, file));
+        removed++;
+      }
+    }
+    if (removed > 0) console.log(`🧹 نضفت ${removed} ملف زبون تجريبي قديم (smoke-test-*)`);
+  } catch (err) {
+    console.warn(`⚠️ فشل تنظيف ملفات التجربة (غير حرج): ${err.message}`);
+  }
 }
 
 main().catch((err) => {

@@ -64,7 +64,7 @@ function issue(clientId, label) {
   console.log(`✅ مفاتيح "${clientId}" جاهزة:\n`);
   console.log(`pk_ (عام — للودجت):\n  ${auth.publicKey}\n`);
   console.log(`sk_ (سري — سيرفر-لسيرفر، معرّف ${record.id}، اطبعه هلق لأنه ما رح يتعاد عرضه):\n  ${rawSecret}\n`);
-  console.log(`ضيف بكود الودجت: <script data-client-key="${auth.publicKey}" ...>`);
+  console.log(`ضيف بكود الودجت: <script data-server="رابط-السيرفر" data-client-id="${clientId}" data-public-key="${auth.publicKey}" src="رابط-السيرفر/widget/chat-widget.js" defer></script>`);
 }
 
 function list(clientId) {

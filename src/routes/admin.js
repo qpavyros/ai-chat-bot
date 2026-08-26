@@ -4,46 +4,44 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const config = require("../config");
 const adminAuth = require("../services/adminAuth");
 const safeWrite = require("../services/safeWrite");
+const { parseCookies, setSessionCookie, clearSessionCookie, clientIp } = require("../middleware/sessionCookies");
 const auditLog = require("../services/auditLog");
 const replyCache = require("../services/replyCache");
 const provisioning = require("../services/provisioning");
 const apiKeys = require("../services/apiKeys");
-const { validateClientConfig } = require("../services/clientConfigSchema");
+const escalationLog = require("../services/escalationLog");
+const escalationHandled = require("../services/escalationHandled");
+const orders = require("../services/orders");
+const appointments = require("../services/appointments");
+const stats = require("../services/stats");
+const registry = require("../clients/registry");
+const customers = require("../services/customers");
+const deepseek = require("../services/deepseek");
+const handoff = require("../services/handoff");
+
+// معرّف زبون ثابت لمحادثات التجربة من لوحة الأدمن — بادئة "admin-preview" مميّزة عمدًا
+// حتى نقدر نستثنيها من إحصائيات /admin/api/analytics (زبون تجربة مش زبون حقيقي).
+const ADMIN_PREVIEW_USER_ID = "admin-preview";
+const { validateClientConfig, pickClientConfigFields } = require("../services/clientConfigSchema");
 
 const router = express.Router();
 const CLIENTS_DIR = path.join(__dirname, "..", "clients");
 const SESSION_COOKIE = "admin_session";
 
-function parseCookies(req) {
-  const header = req.headers.cookie;
-  const cookies = {};
-  if (!header) return cookies;
-  header.split(";").forEach((pair) => {
-    const idx = pair.indexOf("=");
-    if (idx === -1) return;
-    cookies[pair.slice(0, idx).trim()] = decodeURIComponent(pair.slice(idx + 1).trim());
-  });
-  return cookies;
-}
-
-function setSessionCookie(req, res, token) {
-  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
-  const maxAge = config.admin.sessionTtlHours * 60 * 60;
-  res.setHeader(
-    "Set-Cookie",
-    `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Strict${isHttps ? "; Secure" : ""}`
-  );
-}
-
-function clearSessionCookie(res) {
-  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict`);
-}
-
-function clientIp(req) {
-  return req.ip || req.connection?.remoteAddress || "unknown";
+// أي endpoint بيقبل clientId من الطلب لازم يتحقق منه بشكل مستقل (نفس شرط safeWrite) —
+// بدون هيك، مسار مثل :id=..%2f..%2fdata ممكن يقرأ ملفات خارج مجلد العملاء (path traversal).
+function validClientIdOr400(req, res) {
+  try {
+    safeWrite.assertValidClientId(req.params.id);
+    return true;
+  } catch {
+    res.status(400).json({ error: "معرّف عميل غير صالح" });
+    return false;
+  }
 }
 
 // بوابة API — أي endpoint تحت /admin/api لازم جلسة صالحة، وإلا 401 (الواجهة بتتصرف بالتحويل لتسجيل الدخول)
@@ -86,7 +84,11 @@ router.post("/admin/login", express.json(), (req, res) => {
 
   adminAuth.recordSuccess(ip);
   const token = adminAuth.createSession();
-  setSessionCookie(req, res, token);
+  setSessionCookie(req, res, {
+    name: SESSION_COOKIE,
+    value: token,
+    maxAgeSeconds: config.admin.sessionTtlHours * 60 * 60,
+  });
   auditLog.record("login", null, { ip });
   res.json({ ok: true });
 });
@@ -94,7 +96,7 @@ router.post("/admin/login", express.json(), (req, res) => {
 router.post("/admin/logout", (req, res) => {
   const cookies = parseCookies(req);
   adminAuth.destroySession(cookies[SESSION_COOKIE]);
-  clearSessionCookie(res);
+  clearSessionCookie(res, SESSION_COOKIE);
   res.json({ ok: true });
 });
 
@@ -131,6 +133,14 @@ function summarize(clientId) {
     knowledgeFiles: listKnowledgeFiles(clientId),
     hasWhatsapp: Boolean(cfg.whatsappPhoneNumberId),
     createdAt: cfg.createdAt || null,
+    onboardingChecklist: cfg.onboardingChecklist || {},
+    tier: cfg.tier || null,
+    referralCode: cfg.referralCode || null,
+    referredByClientId: cfg.referredByClientId || null,
+    referralRewarded: Boolean(cfg.referralRewarded),
+    paymentCount: (cfg.paymentHistory || []).length,
+    referralRewardEligible:
+      Boolean(cfg.referredByClientId) && !cfg.referralRewarded && hasConsecutivePayments(cfg.paymentHistory),
   };
 }
 
@@ -138,11 +148,25 @@ function summarize(clientId) {
 
 router.get("/admin/api/clients", requireAuth, (req, res) => {
   const clients = safeWrite.listClientIds().map(summarize).filter(Boolean);
+
+  // نمرّ مرة تانية لنعلّم كل عميل "مُحيل" بلائحة العملاء المُحالين المستحقين مكافأة منه —
+  // معلومة عابرة للعملاء (referredByClientId موجود بعميل تاني)، أبسط تحسب هون مرة وحدة
+  // بدل ما تتكرر بكل صف بالواجهة.
+  const byId = new Map(clients.map((c) => [c.id, c]));
+  for (const c of clients) {
+    if (c.referralRewardEligible && byId.has(c.referredByClientId)) {
+      const referrer = byId.get(c.referredByClientId);
+      referrer.pendingReferralRewards = referrer.pendingReferralRewards || [];
+      referrer.pendingReferralRewards.push({ clientId: c.id, displayName: c.displayName });
+    }
+  }
+
   clients.sort((a, b) => a.displayName.localeCompare(b.displayName, "ar"));
   res.json({ clients });
 });
 
 router.get("/admin/api/clients/:id", requireAuth, (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
   const cfg = readClientConfig(req.params.id);
   if (!cfg) return res.status(404).json({ error: "عميل غير موجود" });
 
@@ -153,7 +177,7 @@ router.get("/admin/api/clients/:id", requireAuth, (req, res) => {
 });
 
 router.post("/admin/api/clients", requireAuth, express.json(), (req, res) => {
-  const { companyName, contactEmail, escalationPhone, notifyWhatsapp, knowledgeSourceLabel, knowledgeText, expiresAt } =
+  const { companyName, contactEmail, escalationPhone, notifyWhatsapp, knowledgeSourceLabel, knowledgeText, expiresAt, tier, referredByClientId } =
     req.body || {};
 
   if (!companyName || !String(companyName).trim()) {
@@ -161,6 +185,10 @@ router.post("/admin/api/clients", requireAuth, express.json(), (req, res) => {
   }
   if (!escalationPhone || !String(escalationPhone).trim()) {
     return res.status(400).json({ error: "رقم تواصل التصعيد مطلوب" });
+  }
+
+  if (referredByClientId && !readClientConfig(referredByClientId)) {
+    return res.status(400).json({ error: `عميل المُحيل غير موجود: ${referredByClientId}` });
   }
 
   const slug = provisioning.generateUniqueSlug(companyName);
@@ -177,8 +205,15 @@ router.post("/admin/api/clients", requireAuth, express.json(), (req, res) => {
     contactEmail: contactEmail || null,
     status: "active",
     plan: "manual",
+    tier: ["starter", "growth", "pro"].includes(tier) ? tier : null,
     subscriptionExpiresAt: expiresAt || null,
     knowledgeSourceLabel: knowledgeSourceLabel || null,
+    // كود إحالة تلقائي — بادئة ثابتة + جزء من الـslug، يكفي كمعرّف يشاركه صاحب العمل
+    // شفهيًا أو عبر واتساب، بدون ما يحتاج يتذكر UUID.
+    referralCode: `REF-${slug}`.toUpperCase(),
+    referredByClientId: referredByClientId || null,
+    referralRewarded: false,
+    paymentHistory: [],
     createdAt: new Date().toISOString(),
   };
 
@@ -204,11 +239,19 @@ router.post("/admin/api/clients", requireAuth, express.json(), (req, res) => {
 });
 
 router.put("/admin/api/clients/:id", requireAuth, express.json(), async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
   const existing = readClientConfig(id);
   if (!existing) return res.status(404).json({ error: "عميل غير موجود" });
 
-  const updated = { ...existing, ...req.body, id }; // id ثابت — ما بيتغيّر من الفورم
+  // whitelist حقول معروفة فقط — الجسم الخام ما بيندمج أبدًا (كان يقبل أي حقل مفبرك ويخزنه)
+  const incoming = pickClientConfigFields(req.body);
+  // توكن تلغرام جديد بدون سر محفوظ → نولّد سر ويبهوك تلقائيًا للتحقق بطلبات القناة
+  if (incoming.telegramBotToken && !existing.telegramWebhookSecret && !incoming.telegramWebhookSecret) {
+    incoming.telegramWebhookSecret = crypto.randomBytes(24).toString("hex");
+  }
+
+  const updated = { ...existing, ...incoming, id }; // id ثابت — ما بيتغيّر من الفورم
   const schemaError = validateClientConfig(updated);
   if (schemaError) return res.status(400).json({ error: schemaError });
 
@@ -220,10 +263,38 @@ router.put("/admin/api/clients/:id", requireAuth, express.json(), async (req, re
 
   replyCache.clear(id);
   auditLog.record("update_config", id, { fields: Object.keys(req.body || {}) });
+
+  // توكن تلغرام انضاف/اتغير → نسجّل الويبهوك فورًا بدون ما نستنى إعادة تشغيل
+  if (
+    updated.telegramBotToken &&
+    updated.telegramBotToken !== existing.telegramBotToken &&
+    config.provisioning.publicBaseUrl.startsWith("https://")
+  ) {
+    const telegram = require("../services/telegram");
+    telegram
+      .setWebhook(
+        updated.telegramBotToken,
+        `${config.provisioning.publicBaseUrl}/webhook/telegram/${id}`,
+        updated.telegramWebhookSecret || ""
+      )
+      .then(() => console.log(`[telegram] تسجّل ويبهوك "${id}" بعد تحديث الأدمن`))
+      .catch((err) => console.error(`[telegram] فشل تسجيل "${id}" من الأدمن:`, err.response?.data || err.message));
+  }
+
+  // توكن ديسكورد تغيّر → مزامنة الاتصالات (تشغيل/إيقاف/إعادة اتصال للبوت المعني)
+  if (updated.discordBotToken !== existing.discordBotToken) {
+    try {
+      require("../services/discordGateway").syncAll();
+    } catch (err) {
+      console.error("[discord] فشلت المزامنة من الأدمن:", err.message);
+    }
+  }
+
   res.json({ ok: true });
 });
 
 router.put("/admin/api/clients/:id/knowledge", requireAuth, express.json({ limit: "2mb" }), async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
   const { content } = req.body || {};
   if (typeof content !== "string") return res.status(400).json({ error: "content (نص) مطلوب" });
@@ -240,6 +311,7 @@ router.put("/admin/api/clients/:id/knowledge", requireAuth, express.json({ limit
 });
 
 router.post("/admin/api/clients/:id/renew", requireAuth, express.json(), async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
   const { expiresAt, status } = req.body || {};
   const existing = readClientConfig(id);
@@ -263,8 +335,301 @@ router.post("/admin/api/clients/:id/renew", requireAuth, express.json(), async (
   res.json({ ok: true });
 });
 
+// دفعتين متتاليتين فعليتين = آخر دفعتين مسجّلتين بفارق ~شهر بينهم (مش أي دفعتين تاريخيًا —
+// عميل انقطع اشتراكه لستة أشهر وبعدين رجع ما لازم يُحسب "متتالي"). تساهل 5 أيام لتغطية
+// اختلاف توقيت الدفع الفعلي عن الموعد بالضبط.
+function hasConsecutivePayments(paymentHistory, count = 2, toleranceDays = 35) {
+  const history = paymentHistory || [];
+  if (history.length < count) return false;
+  const recent = history.slice(-count);
+  for (let i = 1; i < recent.length; i++) {
+    const gapDays = (new Date(recent[i].at) - new Date(recent[i - 1].at)) / (24 * 60 * 60 * 1000);
+    if (gapDays > toleranceDays) return false;
+  }
+  return true;
+}
+
+// تسجيل دفعة فعلية: بيمدد الاشتراك 30 يوم (بالضبط متل /renew) + بيسجّل الدفعة بتاريخ paymentHistory
+// (أساس حساب "دفعتين متتاليتين" لبرنامج الإحالة) — عملية واحدة بدل نداءين منفصلين من الواجهة.
+router.post("/admin/api/clients/:id/record-payment", requireAuth, express.json(), async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
+  const { id } = req.params;
+  const existing = readClientConfig(id);
+  if (!existing) return res.status(404).json({ error: "عميل غير موجود" });
+
+  const now = new Date();
+  const currentExpiry = existing.plan === "trial" ? existing.trialExpiresAt : existing.subscriptionExpiresAt;
+  const base = currentExpiry && new Date(currentExpiry) > now ? new Date(currentExpiry) : now;
+  const nextExpiry = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const paymentHistory = [...(existing.paymentHistory || []), {
+    at: now.toISOString(),
+    amountUsd: existing.tier ? config.plans[existing.tier]?.price ?? null : null,
+  }];
+
+  const updated = { ...existing, paymentHistory, status: "active" };
+  if (updated.plan === "trial") updated.trialExpiresAt = nextExpiry;
+  else updated.subscriptionExpiresAt = nextExpiry;
+
+  try {
+    await safeWrite.safeWriteJSON(id, "config.json", updated, { validate: validateClientConfig });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
+  const referralEligible = Boolean(updated.referredByClientId) && !updated.referralRewarded && hasConsecutivePayments(paymentHistory);
+
+  replyCache.clear(id);
+  auditLog.record("record_payment", id, { nextExpiry, amountUsd: paymentHistory[paymentHistory.length - 1].amountUsd });
+  res.json({ ok: true, nextExpiry, referralEligible, referredByClientId: updated.referredByClientId || null });
+});
+
+// يطبّق مكافأة الإحالة على المُحيل (referredByClientId تبع العميل الحالي) — يمدد اشتراك
+// المُحيل بعدد شهور config.referral.rewardMonths، ويعلّم العميل المُحال كـ"مكافأة مصروفة"
+// حتى ما تنعطى مرتين لنفس الإحالة.
+router.post("/admin/api/clients/:id/apply-referral-reward", requireAuth, async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
+  const { id } = req.params; // العميل المُحال (يلي دفع شهرين متتاليين)
+  const referred = readClientConfig(id);
+  if (!referred) return res.status(404).json({ error: "عميل غير موجود" });
+  if (!referred.referredByClientId) return res.status(400).json({ error: "هالعميل ما إله عميل مُحيل مسجّل" });
+  if (referred.referralRewarded) return res.status(409).json({ error: "المكافأة انصرفت مسبقًا لهالإحالة" });
+  if (!hasConsecutivePayments(referred.paymentHistory)) {
+    return res.status(400).json({ error: "العميل المُحال لسا ما دفع شهرين متتاليين" });
+  }
+
+  const referrerId = referred.referredByClientId;
+  const referrer = readClientConfig(referrerId);
+  if (!referrer) return res.status(404).json({ error: "عميل المُحيل غير موجود" });
+
+  const now = new Date();
+  const currentExpiry = referrer.plan === "trial" ? referrer.trialExpiresAt : referrer.subscriptionExpiresAt;
+  const base = currentExpiry && new Date(currentExpiry) > now ? new Date(currentExpiry) : now;
+  const nextExpiry = new Date(base.getTime() + config.referral.rewardMonths * 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const updatedReferrer = { ...referrer };
+  if (updatedReferrer.plan === "trial") updatedReferrer.trialExpiresAt = nextExpiry;
+  else updatedReferrer.subscriptionExpiresAt = nextExpiry;
+
+  try {
+    await safeWrite.safeWriteJSON(referrerId, "config.json", updatedReferrer, { validate: validateClientConfig });
+    await safeWrite.safeWriteJSON(id, "config.json", { ...referred, referralRewarded: true }, { validate: validateClientConfig });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
+  replyCache.clear(referrerId);
+  auditLog.record("referral_reward_applied", referrerId, { referredClientId: id, nextExpiry });
+  res.json({ ok: true, referrerId, nextExpiry });
+});
+
+// شحن رصيد رسائل إضافية (top-up) — تسعيره أعلى من الباقات عمدًا (راجع credits.js)
+router.post("/admin/api/clients/:id/topup", requireAuth, express.json(), async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
+  const { id } = req.params;
+  const { pack } = req.body || {};
+
+  const credits = require("../services/credits");
+  if (!credits.packDef(pack)) {
+    return res.status(400).json({ error: `باقة غير معروفة: ${pack}. المتاح: small, medium` });
+  }
+  if (!readClientConfig(id)) return res.status(404).json({ error: "عميل غير موجود" });
+
+  try {
+    const result = await credits.addCredits(id, pack);
+    auditLog.record("topup_credits", id, { pack, added: result.added, balance: result.balance });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/admin/api/audit-log", requireAuth, (req, res) => {
   res.json({ entries: auditLog.readRecent(200) });
+});
+
+// إحصائيات يومية (آخر 14 يوم) + تقدير تكلفة DeepSeek من بداية الشهر
+router.get("/admin/api/stats", requireAuth, (req, res) => {
+  const snapshot = stats.snapshot();
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const c = snapshot[key] || {};
+    days.push({
+      date: key,
+      messages: c.messages || 0,
+      llmCalls: c.llmCalls || 0,
+      cacheHits: c.cacheHits || 0,
+      escalations: c.escalations || 0,
+      offHours: c.offHours || 0,
+      tokensIn: c.tokensIn || 0,
+      tokensOut: c.tokensOut || 0,
+      costUsd:
+        ((c.tokensIn || 0) / 1e6) * config.deepseek.priceInPerMillion +
+        ((c.tokensOut || 0) / 1e6) * config.deepseek.priceOutPerMillion,
+    });
+  }
+
+  // تكلفة من بداية الشهر الحالي
+  let monthCost = 0;
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  for (const [date, c] of Object.entries(snapshot)) {
+    if (!date.startsWith(monthPrefix)) continue;
+    monthCost +=
+      ((c.tokensIn || 0) / 1e6) * config.deepseek.priceInPerMillion +
+      ((c.tokensOut || 0) / 1e6) * config.deepseek.priceOutPerMillion;
+  }
+
+  res.json({ days, monthToDateCostUsd: Math.round(monthCost * 100) / 100 });
+});
+
+// ---------- API: تحليلات مُجمّعة لكل العملاء ----------
+// أرقام حقيقية بس من بيانات موجودة أصلاً — ما منختلق "إجمالي رسائل من البداية" (customers.js
+// بيحتفظ بآخر 8 تبادلات بس لكل زبون، مش تاريخ كامل)، فبدلها منعرض "نشط آخر 7 أيام" كمؤشر حي.
+
+router.get("/admin/api/analytics", requireAuth, (req, res) => {
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const analytics = safeWrite
+    .listClientIds()
+    .map((clientId) => {
+      const cfg = readClientConfig(clientId);
+      if (!cfg) return null;
+
+      const customersDir = path.join(safeWrite.dataDir(clientId), "customers");
+      let uniqueCustomers = 0;
+      let activeLast7Days = 0;
+      if (fs.existsSync(customersDir)) {
+        // بنستثني ملفات التجربة (admin-preview.json من "تجربة محادثة" باللوحة، preview-*.json
+        // من معاينة التسجيل الذاتي) — مو زبائن حقيقيين، ما لازم يشوّشوا الأرقام.
+        const files = fs
+          .readdirSync(customersDir)
+          .filter((f) => f.endsWith(".json") && f !== "admin-preview.json" && !f.startsWith("preview-"));
+        uniqueCustomers = files.length;
+        for (const f of files) {
+          const profile = safeWrite.safeReadJSON(path.join(customersDir, f), null);
+          if (profile?.lastMessageAt && now - new Date(profile.lastMessageAt).getTime() <= SEVEN_DAYS_MS) {
+            activeLast7Days += 1;
+          }
+        }
+      }
+
+      const escalations = escalationLog.readRecent(clientId, 500);
+      const handledIds = new Set(escalationHandled.getHandledIds(clientId));
+      const unhandledEscalations = escalations.filter((e) => !handledIds.has(e.id)).length;
+
+      return {
+        clientId,
+        displayName: cfg.displayName,
+        status: cfg.status || "active",
+        uniqueCustomers,
+        activeLast7Days,
+        totalOrders: orders.readOrders(clientId).length,
+        totalAppointments: appointments.readAppointments(clientId).length,
+        totalEscalations: escalations.length,
+        unhandledEscalations,
+      };
+    })
+    .filter(Boolean);
+
+  analytics.sort((a, b) => b.activeLast7Days - a.activeLast7Days);
+  res.json({ analytics });
+});
+
+// ---------- API: تجربة محادثة لأي عميل (نفس منطق /signup/preview-chat، بس متاح
+// لعميل موجود أصلاً مش بس أثناء التسجيل الذاتي) ----------
+
+router.post("/admin/api/clients/:id/preview-chat", requireAuth, express.json(), async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
+  const { id } = req.params;
+  const { message } = req.body || {};
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "message (نص) مطلوب" });
+  }
+
+  const client = registry.getClientById(id);
+  if (!client) return res.status(404).json({ error: "عميل غير موجود" });
+
+  try {
+    const profile = customers.getProfile(client.id, ADMIN_PREVIEW_USER_ID);
+    const { text: rawReply } = await deepseek.getReply(client, profile, message);
+    const { cleanText } = handoff.extractEscalationMarker(rawReply);
+    await customers.saveTurn(client.id, ADMIN_PREVIEW_USER_ID, message, cleanText);
+    res.json({ reply: cleanText });
+  } catch (err) {
+    console.error("[admin] فشل تجربة المحادثة:", err.response?.data || err.message);
+    res.status(500).json({ error: "صار خطأ بتجربة المحادثة، جرب كمان شوي" });
+  }
+});
+
+// يمسح تاريخ محادثة التجربة (يبلش تجربة نظيفة بدون ذاكرة من محاولات سابقة)
+router.post("/admin/api/clients/:id/preview-chat/reset", requireAuth, async (req, res) => {
+  if (!validClientIdOr400(req, res)) return;
+  const { id } = req.params;
+  if (!readClientConfig(id)) return res.status(404).json({ error: "عميل غير موجود" });
+
+  const previewFile = path.join(safeWrite.dataDir(id), "customers", `${ADMIN_PREVIEW_USER_ID}.json`);
+  try {
+    if (fs.existsSync(previewFile)) fs.unlinkSync(previewFile);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
+  res.json({ ok: true });
+});
+
+// ---------- API: صندوق التصعيدات المُجمّع ----------
+
+router.get("/admin/api/escalations", requireAuth, (req, res) => {
+  const clientIds = safeWrite.listClientIds();
+  const allEscalations = [];
+
+  for (const clientId of clientIds) {
+    const cfg = readClientConfig(clientId);
+    const logs = escalationLog.readRecent(clientId, 50);
+    const handledIds = new Set(escalationHandled.getHandledIds(clientId));
+
+    for (const item of logs) {
+      allEscalations.push({
+        ...item,
+        clientId,
+        displayName: cfg?.displayName || clientId,
+        handled: handledIds.has(item.id),
+      });
+    }
+  }
+
+  allEscalations.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  res.json({ escalations: allEscalations.slice(0, 200) });
+});
+
+router.post("/admin/api/escalations/:clientId/:escalationId/handle", requireAuth, async (req, res) => {
+  const { clientId, escalationId } = req.params;
+  try {
+    safeWrite.assertValidClientId(clientId);
+    await escalationHandled.markHandled(clientId, escalationId);
+    auditLog.record("escalation_handled", clientId, { escalationId });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/admin/api/escalations/:clientId/:escalationId/unhandle", requireAuth, async (req, res) => {
+  const { clientId, escalationId } = req.params;
+  try {
+    safeWrite.assertValidClientId(clientId);
+    await escalationHandled.unmarkHandled(clientId, escalationId);
+    auditLog.record("escalation_unhandled", clientId, { escalationId });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
