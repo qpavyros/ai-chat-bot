@@ -336,9 +336,20 @@
       '<div><div class="text-label-md font-medium">🌙 ساعات الدوام</div>' +
       '<div class="text-xs text-on-surface-variant mt-0.5">برّا هالساعات، البوت بيرد برسالة "خارج الدوام" بدل رد عادي (التصعيدات العاجلة بتضل شغالة دايماً)</div></div>' +
       '<label class="switch"><input type="checkbox" id="toggle-hours" ' + (state.businessHours.enabled ? "checked" : "") + ' /><span class="track"></span></label></div>' +
-      '<div class="grid grid-cols-2 gap-4">' +
+      '<div class="grid grid-cols-2 gap-4 mb-4">' +
       '<div><label class="field-label" for="hours-start">من الساعة</label><input type="time" id="hours-start" class="field-input" value="' + esc(state.businessHours.start) + '" /></div>' +
       '<div><label class="field-label" for="hours-end">لحد الساعة</label><input type="time" id="hours-end" class="field-input" value="' + esc(state.businessHours.end) + '" /></div>' +
+      '</div>' +
+      '<label class="field-label">أيام الدوام</label>' +
+      '<div class="flex flex-wrap gap-2" id="hours-days">' +
+      [
+        [0, "أحد"], [1, "اثنين"], [2, "ثلاثاء"], [3, "أربعاء"], [4, "خميس"], [5, "جمعة"], [6, "سبت"],
+      ].map(function (d) {
+        var active = state.businessHours.days.indexOf(d[0]) !== -1;
+        return '<button type="button" class="day-toggle px-3 py-1.5 rounded-full text-label-sm border transition-colors' +
+          (active ? ' bg-primary text-on-primary border-primary' : ' bg-surface text-on-surface-variant border-outline-variant') +
+          '" data-day="' + d[0] + '" aria-pressed="' + active + '">' + d[1] + '</button>';
+      }).join("") +
       '</div></div>' +
 
       '<div class="py-4">' +
@@ -489,6 +500,20 @@
   function wireAdvancedSettings() {
     var btn = document.getElementById("settings-save-btn");
     if (!btn) return;
+
+    document.querySelectorAll(".day-toggle").forEach(function (dayBtn) {
+      dayBtn.addEventListener("click", function () {
+        var active = dayBtn.getAttribute("aria-pressed") === "true";
+        dayBtn.setAttribute("aria-pressed", String(!active));
+        dayBtn.classList.toggle("bg-primary", !active);
+        dayBtn.classList.toggle("text-on-primary", !active);
+        dayBtn.classList.toggle("border-primary", !active);
+        dayBtn.classList.toggle("bg-surface", active);
+        dayBtn.classList.toggle("text-on-surface-variant", active);
+        dayBtn.classList.toggle("border-outline-variant", active);
+      });
+    });
+
     btn.addEventListener("click", function () {
       var note = document.getElementById("settings-save-note");
       note.classList.remove("show");
@@ -506,6 +531,8 @@
             enabled: document.getElementById("toggle-hours").checked,
             start: document.getElementById("hours-start").value,
             end: document.getElementById("hours-end").value,
+            days: Array.prototype.slice.call(document.querySelectorAll('.day-toggle[aria-pressed="true"]'))
+              .map(function (b) { return Number(b.getAttribute("data-day")); }),
           },
           widget: {
             accentColor: document.getElementById("widget-color").value,

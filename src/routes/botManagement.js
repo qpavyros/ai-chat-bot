@@ -100,6 +100,13 @@ router.get("/dashboard/bots/:clientId/api/summary", requireUserAuth, requireOwne
       enabled: Boolean(cfg.businessHours?.enabled),
       start: cfg.businessHours?.start || "09:00",
       end: cfg.businessHours?.end || "17:00",
+      // بدون byDay محفوظ = كل الأيام مفتوحة (السلوك الافتراضي بـbusinessHours.js). لو محفوظ،
+      // الأيام المفتوحة هي بس يلي إلها مدخل غير closed بـbyDay (أي يوم غايب = مغلق، راجع hoursForDate).
+      days: cfg.businessHours?.byDay
+        ? Object.keys(cfg.businessHours.byDay)
+            .filter((d) => !cfg.businessHours.byDay[d]?.closed)
+            .map(Number)
+        : [0, 1, 2, 3, 4, 5, 6],
     },
     widget: {
       accentColor: cfg.widget?.accentColor || "#00288e",
@@ -132,7 +139,14 @@ router.post("/dashboard/bots/:clientId/api/settings", requireUserAuth, requireOw
   if (businessHours && typeof businessHours === "object") {
     const start = /^\d{2}:\d{2}$/.test(businessHours.start) ? businessHours.start : "09:00";
     const end = /^\d{2}:\d{2}$/.test(businessHours.end) ? businessHours.end : "17:00";
-    updated.businessHours = { ...updated.businessHours, enabled: Boolean(businessHours.enabled), start, end };
+    const days = Array.isArray(businessHours.days)
+      ? businessHours.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+      : [0, 1, 2, 3, 4, 5, 6];
+    const byDay = {};
+    for (let d = 0; d <= 6; d += 1) {
+      if (days.includes(d)) byDay[String(d)] = { start, end };
+    }
+    updated.businessHours = { enabled: Boolean(businessHours.enabled), start, end, byDay };
   }
 
   if (widget && typeof widget === "object") {
