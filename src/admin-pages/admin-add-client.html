@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>إضافة عميل جديد — لوحة المشغّل</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 20px; direction: ltr; }
+  .field-label { display:block; font-size:14px; color:#444653; margin-bottom:6px; }
+  .field-input { width:100%; background:#fbf8ff; border:1px solid #c4c5d5; border-radius:0.5rem; padding:11px 12px; color:#1a1b22; outline:none; transition:box-shadow .15s, border-color .15s; }
+  .field-input:focus { border-color:#00288e; box-shadow:0 0 0 3px rgba(0,40,142,.12); }
+  .banner { padding:10px 14px; border-radius:0.6rem; font-size:14px; margin-bottom:14px; }
+  .banner.danger { background:#ffdad6; color:#93000a; }
+  .spinner { display:none; width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; }
+  .loading .spinner { display:inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+
+<header class="flex flex-row-reverse justify-between items-center w-full px-6 md:px-10 h-16 max-w-[900px] mx-auto bg-surface border-b border-outline-variant sticky top-0 z-50">
+  <div class="font-headline-md text-headline-md font-bold text-primary shrink-0">ساعدني AI — أدمن</div>
+  <a href="/admin" class="text-sm text-on-surface-variant hover:text-primary transition-colors" style="text-decoration:none;">العملاء</a>
+</header>
+
+<main class="max-w-[900px] mx-auto px-6 md:px-10 py-8">
+  <a href="/admin" class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary text-sm mb-6" style="text-decoration:none;">
+    <span class="material-symbols-outlined text-base">arrow_forward</span>رجوع لقائمة العملاء
+  </a>
+  <h1 class="font-headline-lg text-headline-lg text-primary mb-6">إضافة عميل جديد</h1>
+
+  <div id="add-error"></div>
+
+  <section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">
+    <h2 class="font-headline-md text-headline-md mb-6">البيانات الأساسية</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="md:col-span-2"><label class="field-label" for="a_companyName">اسم الشركة *</label><input id="a_companyName" class="field-input" required></div>
+      <div><label class="field-label" for="a_escalationPhone">رقم تواصل التصعيد *</label><input id="a_escalationPhone" class="field-input" dir="ltr" required></div>
+      <div><label class="field-label" for="a_notifyWhatsapp">رقم واتساب الإشعارات</label><input id="a_notifyWhatsapp" class="field-input" dir="ltr"></div>
+      <div><label class="field-label" for="a_contactEmail">إيميل تواصل (اختياري)</label><input id="a_contactEmail" class="field-input" dir="ltr"></div>
+      <div><label class="field-label" for="a_expiresAt">تاريخ انتهاء الاشتراك (اختياري)</label><input type="date" id="a_expiresAt" class="field-input"></div>
+      <div>
+        <label class="field-label" for="a_tier">الباقة</label>
+        <select id="a_tier" class="field-input">
+          <option value="">بدون باقة (يدوي)</option>
+          <option value="starter">Starter — $29/شهر</option>
+          <option value="growth">Growth — $59/شهر</option>
+          <option value="pro">Pro — $99/شهر</option>
+        </select>
+      </div>
+      <div><label class="field-label" for="a_referredByClientId">مُحال من (Client ID لعميل تاني، اختياري)</label><input id="a_referredByClientId" class="field-input" dir="ltr" placeholder="مثلاً: example-client"></div>
+      <div><label class="field-label" for="a_knowledgeSourceLabel">مصدر المعرفة (ملاحظة حرة)</label><input id="a_knowledgeSourceLabel" class="field-input" placeholder="مثلاً: رابط الموقع أو اسم ملف PDF"></div>
+    </div>
+  </section>
+
+  <section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">
+    <h2 class="font-headline-md text-headline-md mb-1">قاعدة المعرفة</h2>
+    <p class="text-sm text-on-surface-variant mb-6">خانات منظّمة، بتتحوّل تلقائيًا لـknowledge.md بصيغة موحّدة.</p>
+    <div class="grid grid-cols-1 gap-5">
+      <div><label class="field-label" for="a_about">عن المحل/الشركة (وصف قصير)</label><textarea id="a_about" rows="2" class="field-input" placeholder="نوع النشاط، مين الزبون المستهدف، أي ميزة تميّزهم..."></textarea></div>
+      <div><label class="field-label" for="a_categories">الفئات/الخدمات الرئيسية (سطر لكل فئة)</label><textarea id="a_categories" rows="3" class="field-input" placeholder="لابتوبات&#10;موبايلات&#10;إكسسوارات"></textarea></div>
+      <div><label class="field-label" for="a_brands">الماركات (مفصولة بفاصلة، اختياري)</label><input id="a_brands" class="field-input" placeholder="Samsung, Apple, TP-Link..."></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div><label class="field-label" for="a_hours">دوام العمل</label><input id="a_hours" class="field-input" placeholder="السبت-الخميس 9ص-7م"></div>
+        <div><label class="field-label" for="a_payment">طريقة الدفع</label><input id="a_payment" class="field-input" placeholder="كاش، Whish، بطاقة..."></div>
+      </div>
+      <div><label class="field-label" for="a_branches">الفروع/العنوان (سطر لكل فرع)</label><textarea id="a_branches" rows="2" class="field-input" placeholder="الحمرا: شارع الحمرا مقابل صيدلية العرب&#10;الأشرفية: ..."></textarea></div>
+      <div><label class="field-label" for="a_delivery">التوصيل (المناطق، الكلفة، المدة)</label><textarea id="a_delivery" rows="2" class="field-input" placeholder="توصيل لكل لبنان، مجاني فوق 50$، خلال يوم-يومين"></textarea></div>
+      <div><label class="field-label" for="a_warranty">الضمان/الاسترجاع</label><textarea id="a_warranty" rows="2" class="field-input" placeholder="استرجاع خلال 7 أيام بالفاتورة، ضمان سنة على..."></textarea></div>
+      <div><label class="field-label" for="a_products">منتجات/خدمات مختارة (سطر لكل وحدة: الاسم - السعر - وصف قصير)</label><textarea id="a_products" rows="4" class="field-input" placeholder="Galaxy A55 - 330$ - رام 8/128، شاشة 120Hz&#10;توصيل سريع - 5$ - خلال ساعتين"></textarea></div>
+      <div><label class="field-label" for="a_extra">ملاحظات إضافية (اختياري)</label><textarea id="a_extra" rows="2" class="field-input"></textarea></div>
+    </div>
+  </section>
+
+  <div class="flex items-center gap-4 mb-10">
+    <button type="button" class="bg-primary text-on-primary text-sm font-medium px-8 py-3 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2" id="create-client-btn">
+      <span class="spinner"></span><span>إنشاء</span>
+    </button>
+    <a href="/admin" class="border border-outline-variant text-on-surface text-sm px-6 py-3 rounded-lg hover:bg-surface-container-low transition-colors" style="text-decoration:none;">إلغاء</a>
+  </div>
+</main>
+
+<script>
+(function () {
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+    return fetch(url, opts).then(function (res) {
+      if (res.status === 401) { window.location.href = "/admin/login"; throw new Error("unauthorized"); }
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || "صار خطأ");
+        return data;
+      });
+    });
+  }
+
+  // بيحوّل خانات النموذج المنظّمة لصيغة knowledge.md موحّدة.
+  function buildKnowledgeMarkdown() {
+    var name = document.getElementById("a_companyName").value.trim();
+    var lines = ["# قاعدة معرفة — " + (name || "عميل جديد"), ""];
+
+    function section(title, value) {
+      if (!value || !value.trim()) return;
+      lines.push("## " + title, value.trim(), "");
+    }
+    function listSection(title, value) {
+      if (!value || !value.trim()) return;
+      lines.push("## " + title);
+      value.trim().split("\n").forEach(function (line) {
+        if (line.trim()) lines.push("- " + line.trim());
+      });
+      lines.push("");
+    }
+
+    section("عن المحل", document.getElementById("a_about").value);
+    listSection("الفئات/الخدمات الرئيسية", document.getElementById("a_categories").value);
+
+    var brands = document.getElementById("a_brands").value.trim();
+    if (brands) lines.push("## الماركات", brands, "");
+
+    var hours = document.getElementById("a_hours").value.trim();
+    var payment = document.getElementById("a_payment").value.trim();
+    if (hours) lines.push("## دوام العمل", hours, "");
+    if (payment) lines.push("## الدفع", payment, "");
+
+    listSection("الفروع", document.getElementById("a_branches").value);
+    section("التوصيل", document.getElementById("a_delivery").value);
+    section("الضمان/الاسترجاع", document.getElementById("a_warranty").value);
+    listSection("منتجات/خدمات مختارة", document.getElementById("a_products").value);
+    section("ملاحظات إضافية", document.getElementById("a_extra").value);
+
+    lines.push(
+      "## ⚠️ ملاحظة",
+      "هاي معلومات مختارة، مش كاتالوج كامل. لو الزبون سأل عن منتج/سعر مش مذكور هون، اعتذر وما تخترع رقم — وجّهه للتواصل المباشر."
+    );
+
+    return lines.join("\n");
+  }
+
+  document.getElementById("create-client-btn").addEventListener("click", function () {
+    var btn = this;
+    var errorEl = document.getElementById("add-error");
+    errorEl.innerHTML = "";
+
+    var companyName = document.getElementById("a_companyName").value.trim();
+    var escalationPhone = document.getElementById("a_escalationPhone").value.trim();
+    if (!companyName) { errorEl.innerHTML = '<div class="banner danger">اسم الشركة مطلوب</div>'; return; }
+    if (!escalationPhone) { errorEl.innerHTML = '<div class="banner danger">رقم تواصل التصعيد مطلوب</div>'; return; }
+
+    var payload = {
+      companyName: companyName,
+      escalationPhone: escalationPhone,
+      notifyWhatsapp: document.getElementById("a_notifyWhatsapp").value,
+      contactEmail: document.getElementById("a_contactEmail").value,
+      expiresAt: document.getElementById("a_expiresAt").value || null,
+      tier: document.getElementById("a_tier").value || null,
+      referredByClientId: document.getElementById("a_referredByClientId").value.trim() || null,
+      knowledgeSourceLabel: document.getElementById("a_knowledgeSourceLabel").value,
+      knowledgeText: buildKnowledgeMarkdown(),
+    };
+
+    btn.disabled = true;
+    btn.classList.add("loading");
+    api("/admin/api/clients", { method: "POST", body: JSON.stringify(payload) })
+      .then(function (res) {
+        window.location.href = "/admin/client/" + encodeURIComponent(res.clientId || res.id);
+      })
+      .catch(function (err) {
+        errorEl.innerHTML = '<div class="banner danger">' + err.message + '</div>';
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.classList.remove("loading");
+      });
+  });
+})();
+</script>
+
+</body>
+</html>

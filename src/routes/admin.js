@@ -104,6 +104,14 @@ router.get("/admin/analytics", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-analytics.html"));
 });
 
+router.get("/admin/add-client", (req, res) => {
+  const cookies = parseCookies(req);
+  if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
+    return res.redirect("/admin/login");
+  }
+  res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-add-client.html"));
+});
+
 // ---------- مصادقة ----------
 
 router.post("/admin/login", express.json(), (req, res) => {
