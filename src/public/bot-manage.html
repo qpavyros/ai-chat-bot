@@ -597,10 +597,35 @@
     var passwordModal = document.getElementById("password-modal");
     var nameModal = document.getElementById("confirm-name-modal");
 
+    function openNameConfirm() {
+      document.getElementById("confirm-name-target").textContent = state.displayName;
+      document.getElementById("confirm-name-input").value = "";
+      document.getElementById("confirm-name-submit").disabled = true;
+      nameModal.classList.add("show");
+    }
+
     deleteBtn.addEventListener("click", function () {
-      document.getElementById("password-modal-banner").innerHTML = "";
-      document.getElementById("delete-password-input").value = "";
-      passwordModal.classList.add("show");
+      firebaseReady.then(function () {
+        var user = firebase.auth().currentUser;
+        var isGoogleUser = user.providerData.some(function (p) { return p.providerId === "google.com"; })
+          && !user.providerData.some(function (p) { return p.providerId === "password"; });
+
+        if (isGoogleUser) {
+          // مستخدم Google بدون كلمة سر أصلاً — إعادة التحقق بنافذة Google بدل حقل كلمة سر.
+          setLoading(deleteBtn, true);
+          user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider())
+            .then(openNameConfirm)
+            .catch(function (err) {
+              alert(err.code === "auth/popup-closed-by-user" ? "ألغيت التحقق." : "ما قدرنا نتحقق من هويتك — جرب كمان مرة.");
+            })
+            .finally(function () { setLoading(deleteBtn, false); });
+          return;
+        }
+
+        document.getElementById("password-modal-banner").innerHTML = "";
+        document.getElementById("delete-password-input").value = "";
+        passwordModal.classList.add("show");
+      });
     });
 
     document.getElementById("password-modal-cancel").addEventListener("click", function () {
@@ -623,10 +648,7 @@
         })
         .then(function () {
           passwordModal.classList.remove("show");
-          document.getElementById("confirm-name-target").textContent = state.displayName;
-          document.getElementById("confirm-name-input").value = "";
-          document.getElementById("confirm-name-submit").disabled = true;
-          nameModal.classList.add("show");
+          openNameConfirm();
         })
         .catch(function () {
           banner.innerHTML = '<div class="banner danger"><span>كلمة السر غلط</span></div>';
