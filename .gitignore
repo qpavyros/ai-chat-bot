@@ -2,3 +2,11 @@ node_modules/
 .env
 *.log
 data/
+credentials/
+
+# بيانات عملاء حقيقيين (config/auth/knowledge) — نفس منطق data/، ما بتنحط بgit أبداً.
+# example-client/ وexample-clinic/ استثناء مقصود (بيانات توضيحية متتبعة أصلاً بgit).
+src/clients/dukkanatek/
+src/clients/dukkanatek-2/
+src/clients/client-*/
+*.bak
