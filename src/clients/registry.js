@@ -25,7 +25,39 @@ function loadAuth(clientDir) {
   return JSON.parse(fs.readFileSync(authPath, "utf8"));
 }
 
-function loadClients() {
+// كاش ببصمة mtime — كان loadClients() بيعيد قراءة كل العملاء + نصوص المعرفة كاملة من القرص
+// بشكل متزامن عند كل رسالة (O(عملاء × حجم معرفة) لكل طلب، وبيعطل الـevent loop). هلق بنحسب
+// بصمة رخيصة (أسماء ملفات + mtime + size — قراءة metadata بس، بدون محتوى) وبنعيد البناء
+// فقط لما تتغير. دلالة "إعادة التحميل الساخن" بضل نفسها تمامًا: أي تعديل config/auth/.md
+// أو إضافة/حذف عميل = بصمة جديدة = إعادة تحميل فوري على الطلب الجاي.
+//
+// ⚠️ الكائنات المرجعة صارت مشتركة بين الطلبات (نفس reference) — أي مستدعي لازم يقرأ بس،
+// يعدّل عبر safeWrite (اللي بيغير الملف → البصمة بتتغير → نسخة جديدة).
+let cache = null; // { fingerprint, clients }
+
+function currentFingerprint() {
+  const parts = [];
+  const entries = fs.readdirSync(CLIENTS_DIR, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    let dirFp = entry.name;
+    try {
+      const names = fs.readdirSync(path.join(CLIENTS_DIR, entry.name)).sort();
+      for (const name of names) {
+        if (name === "config.json" || name === "auth.json" || name.endsWith(".md")) {
+          const st = fs.statSync(path.join(CLIENTS_DIR, entry.name, name));
+          dirFp += `|${name}:${st.mtimeMs}:${st.size}`;
+        }
+      }
+    } catch {
+      // مجلد انشال/اترّحل بنص الفحص — نتجاهله هون؛ أول طلب جاي بعد استقراره بينبني صح
+    }
+    parts.push(dirFp);
+  }
+  return parts.join("\n");
+}
+
+function buildClients() {
   const clients = new Map();
 
   const entries = fs.readdirSync(CLIENTS_DIR, { withFileTypes: true });
@@ -64,8 +96,17 @@ function loadClients() {
   return clients;
 }
 
-// إعادة تحميل عند كل طلب مو مكلف بعدد العملاء القليل في هالمرحلة، وبيسمح تعديل ملفات .md
-// أو إضافة ملفات جديدة بالـ ingest سكربت (أو عميل جديد بالتسجيل الذاتي) بدون إعادة تشغيل السيرفر.
+function loadClients() {
+  const fingerprint = currentFingerprint();
+  if (cache && cache.fingerprint === fingerprint) return cache.clients;
+
+  const clients = buildClients();
+  cache = { fingerprint, clients };
+  return clients;
+}
+
+// التعديل على ملفات .md أو إضافة عميل جديد (ingest/تسجيل ذاتي) بيشتغل بدون إعادة تشغيل
+// السيرفر — البصمة بتتغير والطلب الجاي بيعيد البناء. راجع currentFingerprint فوق.
 function getClientById(id) {
   return loadClients().get(id) || null;
 }
@@ -80,16 +121,6 @@ function getClientByPublicKey(key) {
 
 function getClientBySecretKey(rawKey) {
   return loadClients().get(`sk:${apiKeys.hashKey(rawKey)}`) || null;
-}
-
-// لفحص التكرار وقت التسجيل الذاتي: هل إيميل معيّن عنده عميل فعّال أصلاً؟ مسح مباشر بالذاكرة
-// كافي بعدد العملاء المتوقع بهالمرحلة — مو مبرر فهرسة إضافية لهالاستخدام النادر.
-function getClientByContactEmail(email) {
-  const normalized = String(email).trim().toLowerCase();
-  for (const client of loadClients().values()) {
-    if (client.contactEmail?.toLowerCase() === normalized) return client;
-  }
-  return null;
 }
 
 // preview: لسا ما ضغطوا "تفعيل" بعد استعراض المعاينة — ما بيرد على زبائن حقيقيين بعد.
@@ -125,7 +156,5 @@ module.exports = {
   getClientByWhatsappPhoneNumberId,
   getClientByPublicKey,
   getClientBySecretKey,
-  getClientByContactEmail,
   isServable,
-  sanitizeClient,
 };

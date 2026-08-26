@@ -37,12 +37,13 @@ function recordSuccess(ip) {
 }
 
 // مقارنة بزمن ثابت (timingSafeEqual) حتى ما يصير سطح هجوم توقيت على كلمة السر —
-// نفس المبدأ المطبّق أصلاً بـapiKeys.js لمقارنة الـhash.
+// نفس المبدأ المطبّق أصلاً بـapiKeys.js لمقارنة الـhash. بنهاش الطرفين SHA256 أولًا
+// فيصير طول المقارنة 32 بايت دائمًا — بدون هيك، الـearly-return على اختلاف الطول
+// كان يكشف طول كلمة السر عبر قياس زمن الرد.
 function checkPassword(rawPassword) {
   if (!config.admin.password || typeof rawPassword !== "string") return false;
-  const a = Buffer.from(rawPassword);
-  const b = Buffer.from(config.admin.password);
-  if (a.length !== b.length) return false;
+  const a = crypto.createHash("sha256").update(rawPassword, "utf8").digest();
+  const b = crypto.createHash("sha256").update(config.admin.password, "utf8").digest();
   return crypto.timingSafeEqual(a, b);
 }
 
