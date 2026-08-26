@@ -20,6 +20,9 @@
   // اختياري: وين الزائر موجود بصفحة المضيف هلق (نص حر بسيط، مش معرّف تقني) — بيوصل مع كل
   // رسالة للسيرفر (راجع pageContext بـwebChat.js) حتى الرد يكون أدق بدون ما الزبون يشرح وين هو.
   var PAGE_CONTEXT = scriptTag.getAttribute("data-page-context") || "";
+  // معرّف قصير وثابت لنوع الصفحة (مش النص الحر أعلاه) — بيستخدمه السيرفر لتقسيم كاش
+  // الردود بشكل صحيح (نفس السؤال ممكن جوابه يختلف حسب نوع الصفحة).
+  var PAGE_KEY = scriptTag.getAttribute("data-page-key") || "";
   // اختياري: أسئلة مقترحة خاصة بهالصفحة تحديدًا (JSON array) — لو موجودة، بتغلب أسئلة السيرفر
   // العامة تبع العميل (كلاهما مفيد، بس هاي أدق لأنها مبنية على وين الزائر بالضبط).
   var PAGE_SUGGESTIONS = [];
@@ -226,7 +229,7 @@
     fetch(SERVER + "/api/v1/chat/" + encodeURIComponent(CLIENT_ID), {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({ message: text, sessionId: sessionId, pageContext: PAGE_CONTEXT }),
+      body: JSON.stringify({ message: text, sessionId: sessionId, pageContext: PAGE_CONTEXT, pageKey: PAGE_KEY }),
     })
       .then(function (r) {
         if (!r.ok || !(r.headers.get("content-type") || "").includes("text/event-stream")) {
@@ -274,7 +277,7 @@
     fetch(SERVER + "/api/v1/chat/" + encodeURIComponent(CLIENT_ID), {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({ message: text, sessionId: sessionId, pageContext: PAGE_CONTEXT }),
+      body: JSON.stringify({ message: text, sessionId: sessionId, pageContext: PAGE_CONTEXT, pageKey: PAGE_KEY }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {

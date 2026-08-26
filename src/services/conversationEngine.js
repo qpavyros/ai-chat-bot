@@ -22,11 +22,14 @@ const { isWithinBusinessHours } = require("./businessHours");
  * @param {string} userText نص الرسالة الواردة
  * @param {(delta:string)=>void} [onDelta] اختياري — بث تدريجي للرد (الودجت بس). تمريره يقلب
  *   الاستدعاء الداخلي لـgetReplyStream بدل getReply.
- * @param {string} [pageContext] اختياري — وين الزائر موجود بصفحة المضيف هلق (ودجت الموقع بس،
- *   راجع data-page-context بـchat-widget.js). بيوصل كسياق للنموذج، مش كتعليمات من الزبون.
+ * @param {string} [pageContext] اختياري — وصف حر لوين الزائر موجود بصفحة المضيف هلق (ودجت
+ *   الموقع بس، راجع data-page-context بـchat-widget.js)، بيوصل كسياق للنموذج بس، مش للكاش
+ *   (ممكن يحمل تفاصيل ديناميكية متل اسم شركة).
+ * @param {string} [pageKey] اختياري — معرّف قصير وثابت لنوع الصفحة (راجع data-page-key)،
+ *   لتقسيم الكاش بشكل صحيح بدون ما يفلت جواب صفحة عصفحة تانية بنفس السؤال.
  * @returns {Promise<{kind:"reply", reply:string, escalated?:boolean}|{kind:"blocked", reason:string}>}
  */
-async function handleInbound({ client, channel, endUserId, userText, onDelta, pageContext = "" }) {
+async function handleInbound({ client, channel, endUserId, userText, onDelta, pageContext = "", pageKey = "" }) {
   stats.increment({ messages: 1 });
 
   // ١) محادثة موقوفة بعد تصعيد سابق — رد "لسا منستنى" بدون DeepSeek ولا عدّ
@@ -45,10 +48,8 @@ async function handleInbound({ client, channel, endUserId, userText, onDelta, pa
 
   // ٣) كاش الردود — زبون أول-تواصل بس (راجع replyCache.js للشروط الثلاثة)
   const profile = customers.getProfile(client.id, endUserId);
-  // pageContext بيأثر على الرد (راجع buildSystemPrompt) — رد مخزّن بالكاش لسياق صفحة معيّنة
-  // ما لازم ينرجّع لسؤال نفس النص بصفحة تانية.
-  const cacheable = profile.history.length === 0 && profile.facts.length === 0 && !pageContext;
-  const cachedReply = cacheable ? replyCache.get(client.id, userText) : null;
+  const cacheable = profile.history.length === 0 && profile.facts.length === 0;
+  const cachedReply = cacheable ? replyCache.get(client.id, userText, pageKey) : null;
   if (cachedReply) {
     stats.increment({ cacheHits: 1 });
     await customers.saveTurn(client.id, endUserId, userText, cachedReply);
@@ -95,7 +96,7 @@ async function handleInbound({ client, channel, endUserId, userText, onDelta, pa
 
   // ما نخزّن إلا رد "نظيف": أول-تواصل + بدون أدوات + بدون تصعيد
   if (cacheable && !result.toolsUsed && !escalated) {
-    replyCache.set(client.id, userText, cleanText);
+    replyCache.set(client.id, userText, cleanText, pageKey);
   }
   if (escalated) {
     stats.increment({ escalations: 1 });

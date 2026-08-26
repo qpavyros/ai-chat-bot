@@ -40,6 +40,10 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
     // اختياري — من data-page-context بالودجت المضمّن، وين الزائر موجود بصفحة المضيف هلق.
     // نص حر من صفحة المضيف مش من الزبون، بس منحدد طول أقصى احتياطًا (ما بيوصل لـsystem prompt خام بلا حد).
     const pageContext = typeof req.body.pageContext === "string" ? req.body.pageContext.trim().slice(0, 200) : "";
+    // معرّف قصير وثابت لنوع الصفحة (مش النص الحر) — راجع data-page-key بالودجت. نحصره
+    // بحروف/أرقام/شرطات فقط حتى ما يصير مصدر مفاتيح كاش عشوائية غير محدودة.
+    const pageKeyRaw = typeof req.body.pageKey === "string" ? req.body.pageKey.slice(0, 40) : "";
+    const pageKey = /^[a-zA-Z0-9_-]*$/.test(pageKeyRaw) ? pageKeyRaw : "";
 
     if (!message || !sessionId) {
       return res.status(400).json({ error: { code: "missing_fields", message: "message و sessionId مطلوبين" } });
@@ -88,6 +92,7 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
           userText: message,
           onDelta: (delta) => send({ type: "delta", text: delta }),
           pageContext,
+          pageKey,
         });
 
         if (result.kind === "blocked") {
@@ -114,6 +119,7 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
       endUserId: sessionId,
       userText: message,
       pageContext,
+      pageKey,
     });
 
     if (result.kind === "blocked") {

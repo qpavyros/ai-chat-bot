@@ -24,14 +24,16 @@ function normalize(text) {
     .toLowerCase();
 }
 
-function buildKey(clientId, message) {
-  return `${clientId}:${normalize(message)}`;
+// pageKey اختياري — معرّف قصير وثابت لنوع الصفحة (مش النص الحر الكامل يلي ممكن يحمل اسم
+// شركة أو تفاصيل ديناميكية، راجع pageContext بـwebChat.js). بدونه، نفس السلوك القديم تمامًا.
+function buildKey(clientId, message, pageKey = "") {
+  return `${clientId}:${pageKey}:${normalize(message)}`;
 }
 
-function get(clientId, message) {
+function get(clientId, message, pageKey = "") {
   if (!config.replyCache.enabled) return null;
 
-  const key = buildKey(clientId, message);
+  const key = buildKey(clientId, message, pageKey);
   const entry = store.get(key);
   if (!entry) return null;
 
@@ -42,7 +44,7 @@ function get(clientId, message) {
   return entry.reply;
 }
 
-function set(clientId, message, reply) {
+function set(clientId, message, reply, pageKey = "") {
   if (!config.replyCache.enabled) return;
 
   if (store.size >= config.replyCache.maxEntries) {
@@ -52,7 +54,7 @@ function set(clientId, message, reply) {
     if (oldestKey) store.delete(oldestKey);
   }
 
-  store.set(buildKey(clientId, message), {
+  store.set(buildKey(clientId, message, pageKey), {
     reply,
     expiresAt: Date.now() + config.replyCache.ttlHours * 60 * 60 * 1000,
   });
