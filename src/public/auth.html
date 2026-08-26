@@ -113,9 +113,19 @@
     .then(function (cfg) {
       firebase.initializeApp(cfg);
       initAuthUI();
+      // نتيجة تسجيل الدخول عبر Google (بعد signInWithRedirect وإعادة تحميل الصفحة) —
+      // getRedirectResult بترجع فوراً بلا نتيجة لو الزيارة عادية (مش عودة من Google)، فآمنة
+      // تُستدعى دايمًا هون بدون ما تأثر على تحميل الصفحة العادي.
+      return firebase.auth().getRedirectResult();
     })
-    .catch(function () {
-      showBanner("danger", "ما قدرنا نجهّز صفحة الدخول. جرب كمان شوي.");
+    .then(function (result) {
+      if (result && result.user) {
+        return result.user.getIdToken().then(exchangeToken);
+      }
+    })
+    .catch(function (err) {
+      if (err && err.code) handleFirebaseError(err);
+      else showBanner("danger", "ما قدرنا نجهّز صفحة الدخول. جرب كمان شوي.");
     });
 
   var activeTab = "login";
@@ -180,11 +190,11 @@
 
     document.getElementById("google-btn").addEventListener("click", function () {
       clearBanner();
+      // signInWithRedirect بدل signInWithPopup عمدًا: الـpopup بينحجب بسهولة (حاجب نوافذ
+      // منبثقة، Safari ITP، متصفحات الموبايل) وبيطلع خطأ عام مش مفيد للزبون. الـredirect
+      // بيشتغل بكل مكان، والنتيجة بتنقرا من getRedirectResult() فوق لما الصفحة ترجع تحمّل.
       var provider = new firebase.auth.GoogleAuthProvider();
-      firebase.auth().signInWithPopup(provider)
-        .then(function (cred) { return cred.user.getIdToken(); })
-        .then(exchangeToken)
-        .catch(function (err) { handleFirebaseError(err); });
+      firebase.auth().signInWithRedirect(provider);
     });
 
     document.getElementById("forgot-password-link").addEventListener("click", function (e) {
@@ -210,6 +220,11 @@
       "auth/invalid-credential": "إيميل أو كلمة سر غير صحيحة.",
       "auth/too-many-requests": "محاولات كتيرة فاشلة — جرب بعد شوي.",
       "auth/popup-closed-by-user": "أقفلت نافذة Google قبل ما تخلص.",
+      "auth/popup-blocked": "المتصفح حجب نافذة Google — جرب تعطّل حاجب النوافذ المنبثقة أو استخدم متصفح تاني.",
+      "auth/cancelled-popup-request": "في محاولة تسجيل تانية عم تصير بنفس الوقت — جرب مرة وحدة بس.",
+      "auth/unauthorized-domain": "هالموقع مش مصرّح له يستخدم تسجيل دخول Google حالياً — تواصل مع الدعم الفني.",
+      "auth/operation-not-allowed": "تسجيل الدخول بـGoogle مش مفعّل حالياً — جرب بالإيميل وكلمة السر، أو تواصل مع الدعم.",
+      "auth/network-request-failed": "مشكلة بالاتصال بالإنترنت — تأكد من الشبكة وجرب كمان مرة.",
     };
     showBanner("danger", messages[err.code] || "صار خطأ، جرب كمان مرة.");
   }
