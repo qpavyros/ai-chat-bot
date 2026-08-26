@@ -48,9 +48,9 @@
     </a>
   </div>
   <div class="mt-auto flex flex-col gap-2 border-t border-outline-variant pt-6">
-    <a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-xl px-4 py-3 font-label-md text-label-md transition-all opacity-60 cursor-default">
+    <button type="button" id="support-chat-link" class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-xl px-4 py-3 font-label-md text-label-md transition-all w-full text-right">
       <span class="material-symbols-outlined">support_agent</span>الدعم الفني
-    </a>
+    </button>
     <button type="button" id="logout-btn" class="flex items-center gap-3 text-error hover:bg-error-container/50 rounded-xl px-4 py-3 font-label-md text-label-md transition-all w-full text-right">
       <span class="material-symbols-outlined">logout</span>تسجيل خروج
     </button>
@@ -81,6 +81,11 @@
 
   document.getElementById("logout-btn-mobile").addEventListener("click", function () {
     document.getElementById("logout-btn").click();
+  });
+
+  document.getElementById("support-chat-link").addEventListener("click", function () {
+    var bubble = document.getElementById("aicb-bubble");
+    if (bubble) bubble.click();
   });
 
   fetch("/dashboard/api/summary", { credentials: "include" })
@@ -208,6 +213,24 @@
     content.innerHTML = html;
     content.style.display = "block";
   }
+
+  // بوت الدعم الفني الداخلي — يساعد أصحاب البوتات يفهموا/يشغّلوا ميزات المنصة، مش زبائنهم
+  (function loadSupportWidget() {
+    var s = document.createElement("script");
+    s.src = "/widget/chat-widget.js";
+    s.setAttribute("data-server", location.origin);
+    s.setAttribute("data-client-id", "support-bot");
+    s.setAttribute("data-public-key", "pk_LRIhO5fbj95b-kJvy1oAZLeJ");
+    s.setAttribute("data-title", "الدعم الفني");
+    s.setAttribute("data-page-context", "لوحة التحكم الرئيسية — قائمة البوتات");
+    s.setAttribute("data-suggestions", JSON.stringify([
+      "كيف أضيف بوت جديد؟",
+      "شو معنى نسبة استهلاك الرسائل يلي عم أشوفها؟",
+      "بوتي متوقف عن الرد، شو أتأكد منه؟",
+      "كيف أرقّي باقتي أو أشتري رصيد رسائل؟",
+    ]));
+    document.body.appendChild(s);
+  })();
 })();
 </script>
 

@@ -22,9 +22,11 @@ const { isWithinBusinessHours } = require("./businessHours");
  * @param {string} userText نص الرسالة الواردة
  * @param {(delta:string)=>void} [onDelta] اختياري — بث تدريجي للرد (الودجت بس). تمريره يقلب
  *   الاستدعاء الداخلي لـgetReplyStream بدل getReply.
+ * @param {string} [pageContext] اختياري — وين الزائر موجود بصفحة المضيف هلق (ودجت الموقع بس،
+ *   راجع data-page-context بـchat-widget.js). بيوصل كسياق للنموذج، مش كتعليمات من الزبون.
  * @returns {Promise<{kind:"reply", reply:string, escalated?:boolean}|{kind:"blocked", reason:string}>}
  */
-async function handleInbound({ client, channel, endUserId, userText, onDelta }) {
+async function handleInbound({ client, channel, endUserId, userText, onDelta, pageContext = "" }) {
   stats.increment({ messages: 1 });
 
   // ١) محادثة موقوفة بعد تصعيد سابق — رد "لسا منستنى" بدون DeepSeek ولا عدّ
@@ -43,7 +45,9 @@ async function handleInbound({ client, channel, endUserId, userText, onDelta }) 
 
   // ٣) كاش الردود — زبون أول-تواصل بس (راجع replyCache.js للشروط الثلاثة)
   const profile = customers.getProfile(client.id, endUserId);
-  const cacheable = profile.history.length === 0 && profile.facts.length === 0;
+  // pageContext بيأثر على الرد (راجع buildSystemPrompt) — رد مخزّن بالكاش لسياق صفحة معيّنة
+  // ما لازم ينرجّع لسؤال نفس النص بصفحة تانية.
+  const cacheable = profile.history.length === 0 && profile.facts.length === 0 && !pageContext;
   const cachedReply = cacheable ? replyCache.get(client.id, userText) : null;
   if (cachedReply) {
     stats.increment({ cacheHits: 1 });
@@ -75,8 +79,8 @@ async function handleInbound({ client, channel, endUserId, userText, onDelta }) 
   // ٥) النموذج + ماركر التصعيد + الحفظ + التخزين بالكاش + إشعار التصعيد
   stats.increment({ llmCalls: 1 });
   const result = onDelta
-    ? await deepseek.getReplyStream(client, profile, userText, onDelta)
-    : await deepseek.getReply(client, profile, userText);
+    ? await deepseek.getReplyStream(client, profile, userText, onDelta, pageContext)
+    : await deepseek.getReply(client, profile, userText, pageContext);
 
   if (result.usage) {
     stats.increment({

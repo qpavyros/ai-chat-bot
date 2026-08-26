@@ -37,6 +37,9 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
   try {
     const client = req.client;
     const { message, sessionId } = req.body;
+    // اختياري — من data-page-context بالودجت المضمّن، وين الزائر موجود بصفحة المضيف هلق.
+    // نص حر من صفحة المضيف مش من الزبون، بس منحدد طول أقصى احتياطًا (ما بيوصل لـsystem prompt خام بلا حد).
+    const pageContext = typeof req.body.pageContext === "string" ? req.body.pageContext.trim().slice(0, 200) : "";
 
     if (!message || !sessionId) {
       return res.status(400).json({ error: { code: "missing_fields", message: "message و sessionId مطلوبين" } });
@@ -84,6 +87,7 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
           endUserId: sessionId,
           userText: message,
           onDelta: (delta) => send({ type: "delta", text: delta }),
+          pageContext,
         });
 
         if (result.kind === "blocked") {
@@ -109,6 +113,7 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
       channel: "web",
       endUserId: sessionId,
       userText: message,
+      pageContext,
     });
 
     if (result.kind === "blocked") {

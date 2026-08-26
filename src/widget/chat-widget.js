@@ -17,6 +17,16 @@
   var PUBLIC_KEY = scriptTag.getAttribute("data-public-key") || "";
   var WIDGET_KEY = scriptTag.getAttribute("data-widget-key") || ""; // وضع قديم — راجع README قسم "ملكية رقم واتساب"
   var TITLE = scriptTag.getAttribute("data-title") || "الدردشة معنا";
+  // اختياري: وين الزائر موجود بصفحة المضيف هلق (نص حر بسيط، مش معرّف تقني) — بيوصل مع كل
+  // رسالة للسيرفر (راجع pageContext بـwebChat.js) حتى الرد يكون أدق بدون ما الزبون يشرح وين هو.
+  var PAGE_CONTEXT = scriptTag.getAttribute("data-page-context") || "";
+  // اختياري: أسئلة مقترحة خاصة بهالصفحة تحديدًا (JSON array) — لو موجودة، بتغلب أسئلة السيرفر
+  // العامة تبع العميل (كلاهما مفيد، بس هاي أدق لأنها مبنية على وين الزائر بالضبط).
+  var PAGE_SUGGESTIONS = [];
+  try {
+    var rawSuggestions = scriptTag.getAttribute("data-suggestions");
+    if (rawSuggestions) PAGE_SUGGESTIONS = JSON.parse(rawSuggestions).filter(function (s) { return typeof s === "string" && s.trim(); });
+  } catch (_) { /* JSON غير صالح — نتجاهله، الودجت يضل يشتغل بأسئلة السيرفر */ }
 
   var SESSION_KEY = "aicb_session_" + CLIENT_ID;
   var sessionId = localStorage.getItem(SESSION_KEY);
@@ -107,10 +117,29 @@
     msgsEl.scrollTop = msgsEl.scrollHeight;
   }
 
+  function renderSuggestionChips(list) {
+    if (!list.length || suggestionsWrap.hasChildNodes()) return;
+    for (var i = 0; i < list.length && i < 4; i++) {
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "aicb-chip";
+      chip.textContent = list[i];
+      chip.addEventListener("click", function () {
+        inputEl.value = this.textContent;
+        formEl.dispatchEvent(new Event("submit", { cancelable: true }));
+        suggestionsWrap.style.display = "none"; // مرة وحدة تكفي
+      });
+      suggestionsWrap.appendChild(chip);
+    }
+    if (suggestionsWrap.hasChildNodes()) suggestionsWrap.style.display = "flex";
+  }
+
   function openPanel() {
     panel.classList.add("open");
     if (msgsEl.children.length === 0) {
       addMessage("bot", "أهلًا! كيف فيني ساعدك اليوم؟");
+      // أسئلة الصفحة (لو موجودة) بتظهر فورًا بدون انتظار السيرفر — أدق من أسئلة العميل العامة
+      renderSuggestionChips(PAGE_SUGGESTIONS);
       loadWidgetConfig(); // مرة وحدة بأول فتح — best effort، الفشل صامت
     }
     setTimeout(function () { inputEl.focus(); }, 50);
@@ -142,20 +171,8 @@
           document.head.appendChild(styleFor);
         }
 
-        if (cfg.suggestions && cfg.suggestions.length && !suggestionsWrap.hasChildNodes()) {
-          for (var i = 0; i < cfg.suggestions.length && i < 4; i++) {
-            var chip = document.createElement("button");
-            chip.type = "button";
-            chip.className = "aicb-chip";
-            chip.textContent = cfg.suggestions[i];
-            chip.addEventListener("click", function () {
-              inputEl.value = this.textContent;
-              formEl.dispatchEvent(new Event("submit", { cancelable: true }));
-              suggestionsWrap.style.display = "none"; // مرة وحدة تكفي
-            });
-            suggestionsWrap.appendChild(chip);
-          }
-          if (suggestionsWrap.hasChildNodes()) suggestionsWrap.style.display = "flex";
+        if (cfg.suggestions && cfg.suggestions.length) {
+          renderSuggestionChips(cfg.suggestions);
         }
       })
       .catch(function () { /* صامت */ });
@@ -209,7 +226,7 @@
     fetch(SERVER + "/api/v1/chat/" + encodeURIComponent(CLIENT_ID), {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({ message: text, sessionId: sessionId }),
+      body: JSON.stringify({ message: text, sessionId: sessionId, pageContext: PAGE_CONTEXT }),
     })
       .then(function (r) {
         if (!r.ok || !(r.headers.get("content-type") || "").includes("text/event-stream")) {
@@ -257,7 +274,7 @@
     fetch(SERVER + "/api/v1/chat/" + encodeURIComponent(CLIENT_ID), {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({ message: text, sessionId: sessionId }),
+      body: JSON.stringify({ message: text, sessionId: sessionId, pageContext: PAGE_CONTEXT }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {

@@ -45,7 +45,7 @@ const SALES_DIRECTIVE = [
   "- الاختبار الأخلاقي لأي أسلوب هون: إذا ما كان يشتغل إلا والزبون جاهل بالحقيقة، فهو ممنوع.",
 ].join("\n");
 
-function buildSystemPrompt(client, profile, userMessage = "") {
+function buildSystemPrompt(client, profile, userMessage = "", pageContext = "") {
   const lines = [
     `أنت مساعد خدمة عملاء بالذكاء الاصطناعي لصالح "${client.displayName}".`,
     `أسلوبك: ${client.tone}`,
@@ -59,6 +59,13 @@ function buildSystemPrompt(client, profile, userMessage = "") {
     `لو الزبون طلب صراحة يحكي مع إنسان، أو سؤاله برا نطاق المعلومات المتوفرة تمامًا وما فيك تساعده، أو حسّيت من نبرته إنه غاضب/محبَط فعليًا (شتيمة، تكرار نفس الشكوى بعد ما جاوبته، عبارات زي "هيك ما رح تربحوني" أو "بلا فيديو رد آلي")، حتى لو ما طلب صراحة إنسان: اعتذر بلطف، وجّهه لـ ${client.escalation.contactMethod} (${client.escalation.phone})، وضيف "${ESCALATE_MARKER}" بآخر ردك تمامًا كنص خام (بدون شرحه للزبون، هاي إشارة داخلية للنظام بس). لا تصعّد لمجرد سؤال عادي أو زبون مستعجل بأدب — بس لما فعليًا حاسس الموقف صعب يتحل برد آلي.`,
     `لو تعلمت شي ثابت ومفيد عن الزبون بهالمحادثة (اسمه، تفضيل واضح، حساسية، معلومة بتفيدك برد لاحق)، احفظه بأداة remember_customer_fact. لا تحفظ أشياء عابرة أو سؤال عادي — بس معلومة فعلاً بتستاهل تتذكرها.`,
   ];
+
+  // pageContext بيوصل من الودجت (data-page-context بصفحة المضيف) — مش من الزبون نفسه، فمنعامله
+  // كمعلومة سياق بس (وين الزائر فعليًا بالمنصة هلق)، مش كتعليمات. بيساعد الرد يكون أدق بدون ما
+  // الزبون يشرح "أنا بصفحة كذا" كل مرة.
+  if (pageContext) {
+    lines.push(`سياق: المستخدم حاليًا موجود بهالصفحة/القسم: "${pageContext}". خذ هيك بعين الاعتبار إذا كان مرتبط بسؤاله.`);
+  }
 
   if (client.appointments?.enabled) {
     lines.push(
@@ -287,9 +294,9 @@ const MAX_TOOL_ROUNDS = 4;
 // (replyCache.js): رد استخدم أداة (حجز، فحص توفر، تذكّر معلومة عن الزبون) ما لازم يتخزّن
 // أبدًا، لأنه إما مرتبط بلحظة زمنية محددة (توفر) أو بزبون محدد (معلومة شخصية).
 // usage = مجموع tokens كل الجولات — للإحصائيات وتقدير التكلفة.
-async function getReply(client, profile, userMessage) {
+async function getReply(client, profile, userMessage, pageContext = "") {
   const messages = [
-    { role: "system", content: buildSystemPrompt(client, profile, userMessage) },
+    { role: "system", content: buildSystemPrompt(client, profile, userMessage, pageContext) },
     ...profile.history,
     { role: "user", content: userMessage },
   ];
@@ -357,9 +364,9 @@ function finalizeReply(message, toolsUsed, client) {
 // DeepSeek (متوافق OpenAI) بيبعت SSE أسطر "data: {...}" مع choices[0].delta. تجميع
 // tool_calls من deltas: كل قطعة إلها index — id/name بييجوا بأول قطعة وarguments بتتراكم.
 // أي فشل قبل/أثناء البث بيرمي استثناء — المستدعي (webChat) بينزل للمسار غير المتدفق.
-async function getReplyStream(client, profile, userMessage, onDelta) {
+async function getReplyStream(client, profile, userMessage, onDelta, pageContext = "") {
   const messages = [
-    { role: "system", content: buildSystemPrompt(client, profile, userMessage) },
+    { role: "system", content: buildSystemPrompt(client, profile, userMessage, pageContext) },
     ...profile.history,
     { role: "user", content: userMessage },
   ];
