@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>الباقات والاشتراكات — ساعدني AI</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 20px; direction: ltr; }
+  .banner { padding:14px 16px; border-radius:0.75rem; font-size:14px; display:flex; gap:10px; align-items:flex-start; }
+  .banner.warning { background:#fff2df; color:#8a5300; }
+  .banner.danger { background:#ffdad6; color:#93000a; }
+  .banner.success { background:#e6f4ea; color:#146c2e; }
+  .spinner { display:none; width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; }
+  .loading .spinner { display:inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 900px) {
+    #sidenav { display: none; }
+    #main-area { margin-right: 0 !important; }
+    #mobile-topbar { display: flex !important; }
+  }
+</style>
+</head>
+<body class="flex bg-background min-h-screen text-on-surface">
+
+<div id="mobile-topbar" class="hidden items-center justify-between px-4 py-3 bg-surface-container-low border-b border-outline-variant sticky top-0 z-40">
+  <h2 class="font-headline-md font-black text-primary">ساعدني AI</h2>
+  <button type="button" id="logout-btn-mobile" class="flex items-center gap-2 text-error rounded-xl px-3 py-2 font-label-md text-label-md">
+    <span class="material-symbols-outlined">logout</span>خروج
+  </button>
+</div>
+
+<nav id="sidenav" class="fixed right-0 top-0 h-full w-[260px] border-l border-outline-variant bg-surface-container-low flex flex-col py-8 px-4 gap-2 z-50">
+  <div class="flex items-center gap-3 mb-8 px-2">
+    <span class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center flex-none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+    </span>
+    <h2 class="font-headline-md text-[17px] font-black text-primary">ساعدني AI</h2>
+  </div>
+  <div class="flex-1 flex flex-col gap-2">
+    <a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-xl px-4 py-3 font-label-md text-label-md transition-all" href="/dashboard">
+      <span class="material-symbols-outlined">dashboard</span>لوحة التحكم
+    </a>
+    <a class="flex items-center gap-3 bg-primary-container text-on-primary-container rounded-xl px-4 py-3 font-label-md text-label-md font-bold" href="/dashboard/billing">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>الباقات والاشتراكات
+    </a>
+    <a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-xl px-4 py-3 font-label-md text-label-md transition-all" href="/public/signup">
+      <span class="material-symbols-outlined">add_circle</span>أضف بوت جديد
+    </a>
+  </div>
+  <div class="mt-auto flex flex-col gap-2 border-t border-outline-variant pt-6">
+    <button type="button" id="support-chat-link" class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-xl px-4 py-3 font-label-md text-label-md transition-all w-full text-right">
+      <span class="material-symbols-outlined">support_agent</span>الدعم الفني
+    </button>
+    <button type="button" id="logout-btn" class="flex items-center gap-3 text-error hover:bg-error-container/50 rounded-xl px-4 py-3 font-label-md text-label-md transition-all w-full text-right">
+      <span class="material-symbols-outlined">logout</span>تسجيل خروج
+    </button>
+  </div>
+</nav>
+
+<main id="main-area" class="flex-1 mr-[260px] w-full">
+  <div class="max-w-5xl mx-auto px-6 md:px-10 py-10 md:py-12">
+    <div id="loading" class="text-center py-20"><p class="text-on-surface-variant">لحظة...</p></div>
+    <div id="content" style="display:none;"></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  function esc(s) {
+    var div = document.createElement("div");
+    div.textContent = s == null ? "" : String(s);
+    return div.innerHTML;
+  }
+
+  document.getElementById("logout-btn").addEventListener("click", function () {
+    fetch("/auth/logout", { method: "POST", credentials: "include" }).then(function () { window.location.href = "/auth"; });
+  });
+  document.getElementById("logout-btn-mobile").addEventListener("click", function () {
+    document.getElementById("logout-btn").click();
+  });
+  document.getElementById("support-chat-link").addEventListener("click", function () {
+    var bubble = document.getElementById("aicb-bubble");
+    if (bubble) bubble.click();
+  });
+
+  var bots = [];
+  var selectedClientId = new URLSearchParams(location.search).get("clientId");
+  var state = null;
+
+  fetch("/dashboard/api/summary", { credentials: "include" })
+    .then(function (r) {
+      if (r.status === 401) { window.location.href = "/auth"; return Promise.reject("redirecting"); }
+      return r.json();
+    })
+    .then(function (data) {
+      bots = data.bots || [];
+      if (!bots.length) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").innerHTML =
+          '<div class="text-center py-20"><p class="text-on-surface-variant mb-4">ما عندك بوت لسا.</p>' +
+          '<a href="/public/signup" class="inline-flex items-center gap-2 bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-xl" style="text-decoration:none;"><span class="material-symbols-outlined">add</span>جهّز بوتك الأول</a></div>';
+        document.getElementById("content").style.display = "block";
+        return;
+      }
+      if (!selectedClientId || !bots.some(function (b) { return b.clientId === selectedClientId; })) {
+        selectedClientId = bots[0].clientId;
+      }
+      loadBotBilling(selectedClientId);
+    })
+    .catch(function (e) { if (e !== "redirecting") document.getElementById("loading").innerHTML = '<p class="text-on-surface-variant">صار خطأ، جرب تحدّث الصفحة.</p>'; });
+
+  function loadBotBilling(clientId) {
+    fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/summary", { credentials: "include" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { state = data; render(); })
+      .catch(function () { document.getElementById("loading").innerHTML = '<p class="text-on-surface-variant">صار خطأ، جرب تحدّث الصفحة.</p>'; });
+  }
+
+  function barColor(pct) {
+    if (pct >= 100) return "bg-error";
+    if (pct >= 90) return "bg-[#eab308]";
+    return "bg-[#059669]";
+  }
+
+  function planCard(key, plan, isCurrent) {
+    return (
+      '<div class="bg-surface-container-lowest rounded-xl border ' + (isCurrent ? "border-primary border-2" : "border-outline-variant") + ' p-6 flex flex-col relative">' +
+      (isCurrent ? '<div class="absolute -top-3 right-6 bg-primary text-on-primary px-3 py-1 rounded-full font-label-sm text-label-sm">باقتك الحالية</div>' : "") +
+      '<h4 class="font-headline-md text-headline-md text-on-surface mb-2 mt-1">' + esc(key) + '</h4>' +
+      '<div class="flex items-baseline gap-1 mb-4"><span class="font-display-lg text-[32px] font-bold text-primary">$' + esc(plan.price) + '</span><span class="text-on-surface-variant text-sm">/ شهريًا</span></div>' +
+      '<ul class="flex-1 flex flex-col gap-2 text-sm text-on-surface mb-6">' +
+      '<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span>' + esc(plan.monthlyMessageCap) + ' رسالة شهريًا</li>' +
+      '<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span>' + esc(plan.monthlyVoiceMinutes) + ' دقيقة صوت شهريًا</li>' +
+      '<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span>' + (plan.allowWidget ? "ودجت الموقع + واتساب" : "واتساب بس") + '</li>' +
+      '</ul>' +
+      (isCurrent
+        ? '<button type="button" disabled class="w-full bg-surface-container text-on-surface-variant py-3 rounded-lg text-sm font-medium">باقتك الحالية</button>'
+        : '<button type="button" class="w-full bg-primary text-on-primary py-3 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity upgrade-btn" data-plan="' + esc(key) + '">اطلب ترقية</button>') +
+      '</div>'
+    );
+  }
+
+  function topupCard(key, pack) {
+    return (
+      '<div class="bg-surface-container-low rounded-xl border border-outline-variant p-5 flex justify-between items-center">' +
+      '<div><h4 class="font-headline-md text-[18px] font-bold text-on-surface">' + esc(pack.credits) + ' رسالة</h4>' +
+      '<p class="text-on-surface-variant text-sm">$' + esc(pack.priceUsd) + ' فقط</p></div>' +
+      '<button type="button" class="bg-surface text-primary border border-primary py-2 px-6 rounded-lg text-sm font-medium hover:bg-primary-container transition-colors topup-btn" data-pack="' + esc(key) + '">اطلب شحن</button>' +
+      '</div>'
+    );
+  }
+
+  function render() {
+    document.getElementById("loading").style.display = "none";
+    var content = document.getElementById("content");
+
+    var cap = state.messagesCap;
+    var used = state.messagesThisPeriod;
+    var pct = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
+    var credits = state.topUpCreditsRemaining || 0;
+
+    var banner = "";
+    if (cap && pct >= 100 && credits <= 0) {
+      banner = '<div class="banner danger"><span class="material-symbols-outlined">block</span><span>خلصت سقف رسائلك — البوت هلق بيرد على زبائنك برد تحويل عام بدل رد ذكي، لحد ما ترقّي أو تشتري رصيد.</span></div>';
+    } else if (cap && pct >= 100 && credits > 0) {
+      banner = '<div class="banner danger"><span class="material-symbols-outlined">bolt</span><span>خلصت السقف الأساسي، وعم تستهلك من رصيد الشحن (' + esc(credits) + ' رسالة متبقية).</span></div>';
+    } else if (cap && pct >= 90) {
+      banner = '<div class="banner warning"><span class="material-symbols-outlined">warning</span><span>قربت توصل لسقف باقتك الشهري (' + esc(used) + ' / ' + esc(cap) + ').</span></div>';
+    }
+
+    var botSelector = "";
+    if (bots.length > 1) {
+      botSelector =
+        '<div class="mb-6"><label class="block text-sm font-medium text-on-surface-variant mb-2">أي بوت؟</label>' +
+        '<select id="bot-select" class="bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface outline-none focus:border-primary">' +
+        bots.map(function (b) {
+          return '<option value="' + esc(b.clientId) + '"' + (b.clientId === selectedClientId ? " selected" : "") + '>' + esc(b.displayName) + '</option>';
+        }).join("") +
+        '</select></div>';
+    }
+
+    var plans = state.plans || {};
+    var packs = state.topUpPacks || {};
+    var history = state.paymentHistory || [];
+
+    content.innerHTML =
+      '<div class="mb-8">' +
+      '<h1 class="font-headline-lg text-headline-lg text-primary mb-1">الباقات والاشتراكات</h1>' +
+      '<p class="text-on-surface-variant">إدارة باقتك الحالية، ترقية الاشتراك، ومتابعة رصيد الرسائل.</p>' +
+      '</div>' +
+
+      botSelector +
+
+      '<section class="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-sm p-6 md:p-8 mb-8">' +
+      '<div class="flex justify-between items-center mb-4 flex-wrap gap-3">' +
+      '<h3 class="font-headline-md text-headline-md text-on-surface">استهلاكك الحالي — ' + esc(state.displayName) + '</h3>' +
+      '<span class="text-sm font-medium text-primary bg-primary-fixed px-3 py-1 rounded-full">' + esc(state.tier || (state.plan === "trial" ? "تجريبي" : state.plan)) + '</span>' +
+      '</div>' +
+      (cap
+        ? '<div class="flex justify-between text-sm mb-2 text-on-surface-variant"><span>الرسائل المستهلكة</span><span class="' + (pct >= 90 ? "text-error font-bold" : "font-bold text-on-surface") + '">' + esc(used) + ' / ' + esc(cap) + '</span></div>' +
+          '<div class="w-full bg-surface-container h-3 rounded-full overflow-hidden mb-1"><div class="' + barColor(pct) + ' h-full rounded-full transition-all" style="width:' + pct + '%;"></div></div>'
+        : '<p class="text-sm text-on-surface-variant">' + esc(used) + ' رسالة (بدون سقف)</p>') +
+      (credits > 0 ? '<p class="text-xs text-on-surface-variant mt-2">⚡ رصيد شحن متبقي: ' + esc(credits) + ' رسالة</p>' : '') +
+      (banner ? '<div class="mt-4">' + banner + '</div>' : '') +
+      '<div id="billing-action-banner" class="mt-4"></div>' +
+      '</section>' +
+
+      '<section class="mb-8">' +
+      '<h3 class="font-headline-md text-headline-md text-on-surface mb-5">اختر الباقة المناسبة لعملك</h3>' +
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">' +
+      Object.keys(plans).map(function (key) { return planCard(key, plans[key], key === state.tier); }).join("") +
+      '</div></section>' +
+
+      '<section class="mb-8">' +
+      '<h3 class="font-headline-md text-headline-md text-on-surface mb-2">شحن رصيد إضافي</h3>' +
+      '<p class="text-sm text-on-surface-variant mb-5">سعر الرسالة هون أعلى من سعرها بالباقة عمدًا — الاشتراك يضل الخيار الأذكى ماديًا لو استهلاكك مستمر.</p>' +
+      '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">' +
+      Object.keys(packs).map(function (key) { return topupCard(key, packs[key]); }).join("") +
+      '</div></section>' +
+
+      '<section class="mb-8">' +
+      '<h3 class="font-headline-md text-headline-md text-on-surface mb-5">سجل المدفوعات</h3>' +
+      (history.length
+        ? '<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-x-auto">' +
+          '<table class="w-full text-right border-collapse"><thead class="bg-surface-container-low border-b border-outline-variant"><tr>' +
+          '<th class="p-4 text-sm text-on-surface-variant">التاريخ</th><th class="p-4 text-sm text-on-surface-variant">النوع</th><th class="p-4 text-sm text-on-surface-variant">القيمة</th>' +
+          '</tr></thead><tbody>' +
+          history.slice().reverse().map(function (h) {
+            return '<tr class="border-b border-outline-variant last:border-0"><td class="p-4 text-sm text-on-surface-variant">' + esc((h.at || "").slice(0, 10)) + '</td>' +
+              '<td class="p-4 text-sm">' + (h.type === "topup" ? "شحن رصيد (" + esc(h.pack) + ")" : esc(h.type || "—")) + '</td>' +
+              '<td class="p-4 text-sm font-medium">$' + esc(h.amountUsd) + '</td></tr>';
+          }).join("") +
+          '</tbody></table></div>'
+        : '<p class="text-sm text-on-surface-variant">لسا ما في مدفوعات مسجّلة.</p>') +
+      '</section>';
+
+    content.style.display = "block";
+    wireActions();
+
+    var botSelect = document.getElementById("bot-select");
+    if (botSelect) {
+      botSelect.addEventListener("change", function () {
+        selectedClientId = this.value;
+        history.pushState(null, "", "/dashboard/billing?clientId=" + encodeURIComponent(selectedClientId));
+        document.getElementById("loading").style.display = "block";
+        content.style.display = "none";
+        loadBotBilling(selectedClientId);
+      });
+    }
+  }
+
+  function wireActions() {
+    var banner = document.getElementById("billing-action-banner");
+
+    function send(kind, target, btn) {
+      btn.disabled = true;
+      fetch("/dashboard/bots/" + encodeURIComponent(selectedClientId) + "/api/billing-request", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: kind, target: target }),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (res) {
+          if (res.status !== 200) {
+            banner.innerHTML = '<div class="banner danger">' + esc((res.body.error && res.body.error.message) || "صار خطأ") + '</div>';
+            return;
+          }
+          banner.innerHTML = '<div class="banner success">✔ تم إرسال طلبك — رح نتواصل معك خلال ساعات لإتمام الدفع.</div>';
+        })
+        .catch(function () { banner.innerHTML = '<div class="banner danger">ما قدرنا نوصل للسيرفر.</div>'; })
+        .finally(function () { btn.disabled = false; });
+    }
+
+    document.querySelectorAll(".upgrade-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () { send("upgrade", btn.getAttribute("data-plan"), btn); });
+    });
+    document.querySelectorAll(".topup-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () { send("topup", btn.getAttribute("data-pack"), btn); });
+    });
+  }
+
+  // بوت الدعم الفني الداخلي — نفس المستخدم بلوحة التحكم
+  (function loadSupportWidget() {
+    var s = document.createElement("script");
+    s.src = "/widget/chat-widget.js";
+    s.setAttribute("data-server", location.origin);
+    s.setAttribute("data-client-id", "support-bot");
+    s.setAttribute("data-public-key", "pk_LRIhO5fbj95b-kJvy1oAZLeJ");
+    s.setAttribute("data-title", "الدعم الفني");
+    s.setAttribute("data-page-context", "صفحة الباقات والاشتراكات");
+    s.setAttribute("data-page-key", "billing");
+    s.setAttribute("data-suggestions", JSON.stringify([
+      "شو الفرق بين الباقات؟",
+      "كيف بدفع لما أطلب ترقية؟",
+      "متى بيتجدد سقف رسائلي؟",
+      "رصيد الشحن بينتهي أو بيضل؟",
+    ]));
+    document.body.appendChild(s);
+  })();
+})();
+</script>
+
+</body>
+</html>

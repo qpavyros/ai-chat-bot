@@ -94,6 +94,7 @@ router.get("/dashboard/bots/:clientId/api/summary", requireUserAuth, requireOwne
     plans: config.plans,
     topUpPacks: config.topUpPacks,
     topUpCreditsRemaining: cfg.topUpCreditsRemaining || 0,
+    paymentHistory: cfg.paymentHistory || [],
     voice: {
       enabled: cfg.voice?.enabled !== false,
       minutesUsed: Math.ceil((voiceUsage.count || 0) / 60),

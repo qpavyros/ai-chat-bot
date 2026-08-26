@@ -21,6 +21,10 @@ router.get("/dashboard", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "dashboard.html"));
 });
 
+router.get("/dashboard/billing", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "billing.html"));
+});
+
 function countConversationsThisMonth(clientId) {
   const customersDir = path.join(safeWrite.dataDir(clientId), "customers");
   if (!fs.existsSync(customersDir)) return 0;
