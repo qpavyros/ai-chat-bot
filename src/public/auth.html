@@ -1,0 +1,264 @@
+<!doctype html>
+<html class="scroll-smooth" dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>دخول أو تسجيل — ساعدني AI</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  body { font-family: "IBM Plex Sans Arabic", sans-serif; }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 20px; direction: ltr; }
+  .bg-pattern { background-image: radial-gradient(#c4c5d5 1px, transparent 1px); background-size: 24px 24px; }
+  .banner { display:flex; gap:8px; align-items:flex-start; padding:12px 14px; border-radius:0.75rem; font-size:14px; margin-bottom:16px; }
+  .banner.danger { background:#ffdad6; color:#93000a; }
+  .banner.warning { background:#fff2df; color:#8a5300; }
+  .banner.success { background:#e6f4ea; color:#146c2e; }
+</style>
+</head>
+<body class="bg-background min-h-screen relative flex items-center justify-center overflow-x-hidden p-4">
+
+<div class="absolute inset-0 bg-pattern opacity-30 pointer-events-none"></div>
+<div class="absolute top-0 right-0 w-1/2 h-96 bg-primary/5 blur-[120px] rounded-full pointer-events-none -translate-y-1/2"></div>
+<div class="absolute bottom-0 left-0 w-1/2 h-96 bg-secondary/5 blur-[120px] rounded-full pointer-events-none translate-y-1/2"></div>
+
+<main class="relative z-10 w-full max-w-[420px] py-12">
+  <div class="text-center mb-8">
+    <div class="inline-flex items-center gap-2 mb-2">
+      <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+      <h1 class="text-3xl font-bold text-primary">ساعدني AI</h1>
+    </div>
+    <p class="text-on-surface-variant">المنصة الأذكى لأتمتة خدمة عملاءك</p>
+  </div>
+
+  <!-- ===== حالة النموذج (دخول/تسجيل) ===== -->
+  <div id="form-state" class="bg-surface-container-lowest rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.06)] border border-outline-variant/40 overflow-hidden">
+    <div class="flex border-b border-outline-variant/50">
+      <button type="button" class="auth-tab flex-1 py-4 text-center font-bold text-primary border-b-2 border-primary bg-surface/50 transition-colors" data-tab="login">دخول</button>
+      <button type="button" class="auth-tab flex-1 py-4 text-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors" data-tab="signup">إنشاء حساب</button>
+    </div>
+
+    <div class="p-6 md:p-8">
+      <div id="form-banner"></div>
+
+      <button type="button" id="google-btn" class="w-full flex items-center justify-center gap-3 py-3 border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors text-on-surface font-medium mb-5">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.09A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.43.34-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        كمّل بحساب Google
+      </button>
+
+      <div class="flex items-center gap-4 mb-5">
+        <hr class="flex-1 border-outline-variant/60" />
+        <span class="text-xs text-on-surface-variant">أو</span>
+        <hr class="flex-1 border-outline-variant/60" />
+      </div>
+
+      <form id="auth-form" novalidate class="flex flex-col gap-4">
+        <div>
+          <label class="block text-sm font-medium text-on-surface-variant mb-2" for="email">الإيميل</label>
+          <input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all" dir="ltr" id="email" placeholder="you@company.com" style="text-align:right;" type="email" autocomplete="email" />
+          <p class="field-error text-error text-xs mt-1 hidden" data-error-for="email">إيميل غير صحيح</p>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-sm font-medium text-on-surface-variant" for="password">كلمة السر</label>
+            <a class="text-xs text-primary hover:underline underline-offset-4" href="#" id="forgot-password-link">نسيت كلمة السر؟</a>
+          </div>
+          <input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all" dir="ltr" id="password" placeholder="••••••••" style="text-align:right;" type="password" autocomplete="current-password" />
+          <p class="text-xs text-on-surface-variant mt-1" id="password-hint" style="display:none;">٨ أحرف على الأقل</p>
+        </div>
+
+        <button type="submit" id="submit-btn" class="mt-2 w-full bg-primary hover:bg-primary-container text-on-primary font-bold py-3.5 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-60">
+          <span class="submit-spinner hidden animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full"></span>
+          <span id="submit-btn-text">دخول</span>
+          <span class="material-symbols-outlined text-[18px]">login</span>
+        </button>
+      </form>
+
+      <p class="text-center mt-4" id="forgot-password-note" style="display:none;"></p>
+    </div>
+  </div>
+
+  <!-- ===== حالة استكمال الخطوات ===== -->
+  <div id="resume-state" class="bg-surface-container-lowest rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.06)] border border-outline-variant/40 p-6 md:p-8" style="display:none;">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-full bg-primary-fixed flex items-center justify-center mx-auto mb-4">
+        <span class="material-symbols-outlined text-primary text-3xl">schedule</span>
+      </div>
+      <h2 class="text-xl font-bold text-on-surface mb-1">عندك بوت لسا ما خلص إعداده</h2>
+      <p class="text-on-surface-variant text-sm" id="resume-step-label">وقفت عند خطوة رفع المعرفة.</p>
+    </div>
+    <div class="flex flex-col gap-3">
+      <button type="button" id="resume-continue-btn" class="w-full bg-primary hover:bg-primary-container text-on-primary font-bold py-3.5 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[20px]">play_arrow</span>
+        كمّل من وين وقفت
+      </button>
+      <button type="button" id="resume-restart-btn" class="w-full border border-outline-variant hover:bg-surface-container-low text-on-surface font-medium py-3.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[20px]">add</span>
+        ابدأ بوت جديد من الصفر
+      </button>
+    </div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script>
+(function () {
+  fetch("/auth/firebase-config")
+    .then(function (r) { return r.json(); })
+    .then(function (cfg) {
+      firebase.initializeApp(cfg);
+      initAuthUI();
+    })
+    .catch(function () {
+      showBanner("danger", "ما قدرنا نجهّز صفحة الدخول. جرب كمان شوي.");
+    });
+
+  var activeTab = "login";
+  var STEP_LABELS = {
+    knowledge: "رفع معرفة البوت (ملف أو رابط موقع)",
+    preview: "تجربة البوت قبل التفعيل",
+    activate: "التفعيل النهائي",
+  };
+
+  function showBanner(type, message) {
+    document.getElementById("form-banner").innerHTML =
+      '<div class="banner ' + type + '"><span>' + message + "</span></div>";
+  }
+
+  function clearBanner() {
+    document.getElementById("form-banner").innerHTML = "";
+  }
+
+  function setBtnLoading(btn, loading) {
+    btn.disabled = loading;
+    var spinner = btn.querySelector(".submit-spinner");
+    if (spinner) spinner.classList.toggle("hidden", !loading);
+  }
+
+  function initAuthUI() {
+    document.querySelectorAll(".auth-tab").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll(".auth-tab").forEach(function (b) {
+          b.classList.remove("text-primary", "border-b-2", "border-primary", "bg-surface/50", "font-bold");
+          b.classList.add("text-on-surface-variant");
+        });
+        btn.classList.add("text-primary", "border-b-2", "border-primary", "bg-surface/50", "font-bold");
+        btn.classList.remove("text-on-surface-variant");
+        activeTab = btn.getAttribute("data-tab");
+        clearBanner();
+        var isSignup = activeTab === "signup";
+        document.getElementById("submit-btn-text").textContent = isSignup ? "إنشاء حساب" : "دخول";
+        document.getElementById("password-hint").style.display = isSignup ? "block" : "none";
+        document.getElementById("password").setAttribute("autocomplete", isSignup ? "new-password" : "current-password");
+        document.getElementById("forgot-password-note").style.display = isSignup ? "none" : "block";
+      });
+    });
+
+    document.getElementById("auth-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      clearBanner();
+      var email = document.getElementById("email").value.trim();
+      var password = document.getElementById("password").value;
+      var btn = document.getElementById("submit-btn");
+      setBtnLoading(btn, true);
+
+      var action = activeTab === "signup"
+        ? firebase.auth().createUserWithEmailAndPassword(email, password)
+        : firebase.auth().signInWithEmailAndPassword(email, password);
+
+      action
+        .then(function (cred) { return cred.user.getIdToken(); })
+        .then(exchangeToken)
+        .catch(function (err) { handleFirebaseError(err); })
+        .finally(function () { setBtnLoading(btn, false); });
+    });
+
+    document.getElementById("google-btn").addEventListener("click", function () {
+      clearBanner();
+      var provider = new firebase.auth.GoogleAuthProvider();
+      firebase.auth().signInWithPopup(provider)
+        .then(function (cred) { return cred.user.getIdToken(); })
+        .then(exchangeToken)
+        .catch(function (err) { handleFirebaseError(err); });
+    });
+
+    document.getElementById("forgot-password-link").addEventListener("click", function (e) {
+      e.preventDefault();
+      var email = document.getElementById("email").value.trim();
+      if (!email) {
+        showBanner("warning", "اكتب إيميلك بالحقل فوق أول، وبعدين دوس «نسيت كلمة السر» تاني.");
+        return;
+      }
+      firebase.auth().sendPasswordResetEmail(email)
+        .then(function () { showBanner("success", "بعتنالك رابط لإعادة تعيين كلمة السر على إيميلك."); })
+        .catch(function (err) { handleFirebaseError(err); });
+    });
+  }
+
+  function handleFirebaseError(err) {
+    var messages = {
+      "auth/email-already-in-use": "هالإيميل عنده حساب أصلاً — جرب «دخول» بدل «إنشاء حساب».",
+      "auth/invalid-email": "إيميل غير صحيح.",
+      "auth/weak-password": "كلمة السر لازم تكون ٨ أحرف على الأقل.",
+      "auth/user-not-found": "إيميل أو كلمة سر غير صحيحة.",
+      "auth/wrong-password": "إيميل أو كلمة سر غير صحيحة.",
+      "auth/invalid-credential": "إيميل أو كلمة سر غير صحيحة.",
+      "auth/too-many-requests": "محاولات كتيرة فاشلة — جرب بعد شوي.",
+      "auth/popup-closed-by-user": "أقفلت نافذة Google قبل ما تخلص.",
+    };
+    showBanner("danger", messages[err.code] || "صار خطأ، جرب كمان مرة.");
+  }
+
+  function exchangeToken(idToken) {
+    return fetch("/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: idToken }),
+    })
+      .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
+      .then(function (res) {
+        if (res.status !== 200) {
+          showBanner("danger", (res.body.error && res.body.error.message) || "صار خطأ، جرب كمان مرة");
+          return;
+        }
+        routeAfterAuth(res.body);
+      });
+  }
+
+  function routeAfterAuth(session) {
+    if (session.onboarding && session.onboarding.pendingId) {
+      showResumeScreen(session.onboarding);
+      return;
+    }
+    if (session.hasBots) {
+      window.location.href = "/dashboard";
+    } else {
+      window.location.href = "/public/signup";
+    }
+  }
+
+  function showResumeScreen(onboarding) {
+    document.getElementById("form-state").style.display = "none";
+    document.getElementById("resume-state").style.display = "block";
+    document.getElementById("resume-step-label").textContent =
+      "وقفت عند خطوة: " + (STEP_LABELS[onboarding.currentStep] || onboarding.currentStep);
+
+    document.getElementById("resume-continue-btn").addEventListener("click", function () {
+      window.location.href = "/public/onboard?pendingId=" + encodeURIComponent(onboarding.pendingId) + "&resume=1";
+    });
+    document.getElementById("resume-restart-btn").addEventListener("click", function () {
+      fetch("/auth/onboarding/restart", { method: "POST", credentials: "include" })
+        .then(function () { window.location.href = "/public/signup"; });
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    

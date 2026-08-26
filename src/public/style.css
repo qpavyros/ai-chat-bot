@@ -5,22 +5,25 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
 
 :root {
-  --primary: #1f6f5c;
-  --primary-hover: #185a4a;
-  --primary-wash: #e7f2ee;
-  --ink: #12211d;
-  --ink-muted: #57685f;
-  --bg: #f5f9f7;
+  /* هوية "ساعدني AI" الجديدة — مبنية على تصاميم Stitch (Material Design 3، أزرق/نيلي)
+     2026-08-15، استخرجت القيم مباشرة من tailwind.config المضمّن بشاشات Stitch الست
+     (هبوط، دخول، تسجيل بوت، Dashboard، إدارة بوت، خصوصية) — نفس primary #00288e بكل شاشة. */
+  --primary: #00288e;
+  --primary-hover: #1e40af;
+  --primary-wash: #dde1ff;
+  --ink: #1a1b22;
+  --ink-muted: #444653;
+  --bg: #fbf8ff;
   --surface: #ffffff;
-  --border: #dbe6e1;
-  --success: #16794f;
-  --success-bg: #e9f6ee;
-  --warning: #b45309;
-  --warning-bg: #fef3e2;
-  --danger: #b91c1c;
-  --danger-bg: #fdeeee;
-  --shadow: 0 1px 2px rgba(18, 33, 29, .04), 0 8px 24px -12px rgba(18, 33, 29, .12);
-  --radius: 12px;
+  --border: #e3e1eb;
+  --success: #146c2e;
+  --success-bg: #e6f4ea;
+  --warning: #8a5300;
+  --warning-bg: #fff2df;
+  --danger: #ba1a1a;
+  --danger-bg: #ffdad6;
+  --shadow: 0 1px 2px rgba(26, 27, 34, .04), 0 8px 24px -12px rgba(26, 27, 34, .12);
+  --radius: 16px;
   --radius-sm: 8px;
 }
 
@@ -459,6 +462,43 @@ button {
   margin-top: 22px;
 }
 
+/* ===== حالة تركيز واضحة لمستخدمي لوحة المفاتيح ===== */
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
+}
+
+/* ===== الوضع الداكن — نفس الهوية بتدرّجات داكنة، تباين محافَظ عليه ===== */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #b8c4ff;
+    --primary-hover: #c7d1ff;
+    --primary-wash: #17255c;
+    --ink: #e5e6f0;
+    --ink-muted: #c4c5d5;
+    --bg: #121318;
+    --surface: #1c1d24;
+    --border: #444653;
+    --success: #7dd996;
+    --success-bg: #123321;
+    --warning: #ffcc80;
+    --warning-bg: #3a2700;
+    --danger: #ffb4ab;
+    --danger-bg: #93000a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.45);
+  }
+
+  .btn-primary { color: #0e1a4a; }
+  .snippet-box { background: #0a0b10; color: #c7ccf0; }
+  .chat-msg.user { color: #0e1a4a; }
 }

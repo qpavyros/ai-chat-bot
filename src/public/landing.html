@@ -1,0 +1,402 @@
+<!doctype html>
+<html class="scroll-smooth" dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ساعدني AI - خلّي بوت ذكي يرد على زبائنك</title>
+<meta name="description" content="بوت خدمة عملاء بالذكاء الاصطناعي يرد على زبائنك بالعربي عبر واتساب وموقعك. سجّل شركتك وجهّز بوتك خلال دقائق." />
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 24px;
+    line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap;
+    word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased;
+  }
+  .bg-grid-pattern {
+    background-image: linear-gradient(to right, #e3e1eb 1px, transparent 1px), linear-gradient(to bottom, #e3e1eb 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+  .animate-float { animation: float 4s ease-in-out infinite; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .animate-slide-up { animation: slideUp 0.6s ease-out forwards; }
+  @media (prefers-reduced-motion: reduce) { .animate-float, .animate-slide-up, .animate-ping, .animate-bounce { animation: none !important; opacity: 1 !important; } }
+</style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+
+<!-- Cookie Consent Banner -->
+<div class="fixed bottom-0 left-0 w-full z-50 bg-surface-container-highest border-t border-outline-variant p-4 transition-transform duration-300 transform translate-y-full shadow-lg" id="cookie-banner">
+  <div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex flex-col md:flex-row-reverse items-center justify-between gap-4">
+    <p class="font-body-md text-on-surface-variant text-center md:text-right">
+      🍪 منستخدم كوكيز أساسية بس لتشغيل الموقع وتذكّر تسجيل دخولك — ما منستخدم كوكيز تتبّع أو إعلانات.
+    </p>
+    <div class="flex gap-3 flex-none">
+      <button class="px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md hover:bg-primary-container transition-colors shadow-sm" id="cookie-accept">موافق</button>
+      <a class="px-4 py-2 rounded-lg border border-outline text-on-surface hover:bg-surface-container-high transition-colors font-label-md" href="/cookies">مزيد من التفاصيل</a>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md shadow-sm border-b border-outline-variant w-full">
+  <div class="flex flex-row-reverse justify-between items-center w-full px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto h-20">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+      <span class="font-display-lg text-headline-md md:text-2xl font-bold text-primary tracking-tight">ساعدني AI</span>
+    </div>
+    <nav class="hidden md:flex flex-row-reverse items-center gap-8">
+      <a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md" href="/">الرئيسية</a>
+      <a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#pricing">الأسعار</a>
+      <a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#features">المزايا</a>
+    </nav>
+    <div class="flex flex-row-reverse items-center gap-3">
+      <a class="hidden sm:inline-flex items-center justify-center px-4 py-2 rounded-lg border border-outline text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors" href="/auth">تسجيل الدخول</a>
+      <a class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-md text-label-md shadow-sm transition-all" href="/public/signup">ابدأ مجاناً</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Hero -->
+  <section class="relative pt-24 pb-32 overflow-hidden bg-surface-bright">
+    <div class="absolute inset-0 bg-grid-pattern opacity-40"></div>
+    <div class="absolute top-0 right-0 w-96 h-96 bg-primary-container rounded-full mix-blend-multiply filter blur-3xl opacity-20 -translate-y-1/2 translate-x-1/2"></div>
+    <div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop relative z-10">
+      <div class="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
+        <div class="flex-1 text-center lg:text-right animate-slide-up">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm mb-6 border border-primary-fixed-dim">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            الجيل الجديد من الذكاء الاصطناعي لخدمة العملاء
+          </div>
+          <h1 class="font-display-lg text-4xl md:text-5xl lg:text-6xl font-bold text-on-surface leading-tight mb-6">
+            خلّي بوت ذكي يرد على زبائنك على <span class="text-primary relative inline-block">مدار الساعة
+              <svg class="absolute -bottom-2 right-0 w-full text-secondary" preserveAspectRatio="none" viewBox="0 0 100 10">
+                <path d="M0,5 Q50,10 100,5" fill="transparent" stroke="currentColor" stroke-width="2"></path>
+              </svg>
+            </span>
+          </h1>
+          <p class="font-body-lg text-on-surface-variant text-lg md:text-xl mb-10 max-w-2xl mx-auto lg:mx-0">
+            اربط واتساب وموقعك الإلكتروني بمساعد ذكي يفهم اللهجات العربية، يقرأ بيانات منتجاتك، ويحوّل الزوار إلى عملاء فعليين دون الحاجة لتدخلك.
+          </p>
+          <div class="flex flex-col sm:flex-row-reverse items-center justify-center lg:justify-start gap-4">
+            <a href="/public/signup" class="w-full sm:w-auto text-center px-8 py-4 rounded-xl bg-primary text-on-primary font-headline-sm font-bold shadow-md hover:bg-primary-container hover:-translate-y-1 transition-all duration-200">
+              جهّز بوتك مجاناً
+            </a>
+            <a href="#pricing" class="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-outline-variant text-on-surface font-headline-sm hover:bg-surface-container-high transition-colors duration-200 flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">visibility</span>
+              شوف الباقات
+            </a>
+            <a href="/world" class="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-secondary text-secondary font-headline-sm hover:bg-secondary-container transition-colors duration-200 flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">rocket_launch</span>
+              عيش الرحلة
+            </a>
+          </div>
+          <p class="mt-4 font-label-sm text-on-surface-variant flex items-center justify-center lg:justify-start gap-1">
+            <span class="material-symbols-outlined text-[16px] text-secondary">check_circle</span>
+            لا حاجة لبطاقة ائتمانية. تجربة مجانية ٧ أيام.
+          </p>
+        </div>
+        <div class="flex-1 relative w-full max-w-lg lg:max-w-none animate-slide-up" style="animation-delay: 0.2s;">
+          <div class="relative rounded-[2rem] bg-white shadow-2xl border-4 border-surface-container-highest p-4 w-full aspect-[9/16] max-h-[600px] overflow-hidden animate-float">
+            <div class="flex items-center gap-3 border-b border-outline-variant pb-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+                <span class="material-symbols-outlined text-on-primary-container">smart_toy</span>
+              </div>
+              <div>
+                <h3 class="font-label-md font-bold text-on-surface">مساعد متجرك</h3>
+                <p class="font-label-sm text-secondary">متصل الآن</p>
+              </div>
+            </div>
+            <div class="flex flex-col gap-4">
+              <div class="self-start max-w-[80%] bg-surface-container-high text-on-surface p-3 rounded-2xl rounded-tr-none font-body-md text-sm">
+                مرحباً! عندي استفسار عن مقاسات القميص الأزرق المعروض جديد؟
+              </div>
+              <div class="self-end max-w-[80%] bg-primary text-on-primary p-3 rounded-2xl rounded-tl-none font-body-md text-sm shadow-sm">
+                أهلاً بك! القميص الأزرق (موديل الصيف) متوفر بمقاسات S, M, L, و XL. هل تحب أساعدك تختار المقاس المناسب؟ 😊
+              </div>
+              <div class="self-start max-w-[80%] bg-surface-container-high text-on-surface p-3 rounded-2xl rounded-tr-none font-body-md text-sm">
+                ممتاز، أنا وزني ٧٥ وطولي ١٧٨، شو بيناسبني؟ وهل في توصيل لبيروت؟
+              </div>
+              <div class="self-end max-w-[80%] bg-primary text-on-primary p-3 rounded-2xl rounded-tl-none flex gap-1">
+                <div class="w-2 h-2 bg-on-primary/60 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                <div class="w-2 h-2 bg-on-primary/60 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
+                <div class="w-2 h-2 bg-on-primary/60 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+              </div>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4 flex items-center gap-2 bg-surface-container p-2 rounded-full border border-outline-variant">
+              <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-on-primary text-sm transform -scale-x-100">send</span>
+              </div>
+              <div class="flex-1 text-on-surface-variant font-label-sm text-right px-2 opacity-50">اكتب رسالة...</div>
+            </div>
+          </div>
+          <div class="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-outline-variant animate-slide-up" style="animation-delay: 0.4s;">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center">
+                <span class="material-symbols-outlined text-on-secondary-container">trending_up</span>
+              </div>
+              <div>
+                <p class="font-label-sm text-on-surface-variant">زيادة في المبيعات</p>
+                <p class="font-headline-md font-bold text-on-surface">+٤٣٪</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="py-24 bg-surface" id="features">
+    <div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+      <div class="text-center mb-16">
+        <h2 class="font-headline-lg text-3xl md:text-4xl font-bold text-on-surface mb-4">قوة الذكاء الاصطناعي في متناول يدك</h2>
+        <p class="font-body-md text-on-surface-variant max-w-2xl mx-auto">صُمم خصيصاً للشركات يلي بدها تقدّم دعم فني وخدمة عملاء استثنائية دون زيادة التكاليف التشغيلية.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-[250px]">
+        <div class="col-span-1 md:col-span-2 lg:col-span-2 row-span-1 bg-surface-container-low rounded-3xl p-8 border border-outline-variant hover:shadow-md transition-shadow relative overflow-hidden group">
+          <div class="relative z-10 flex flex-col h-full justify-between">
+            <div class="w-12 h-12 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center mb-4">
+              <span class="material-symbols-outlined">translate</span>
+            </div>
+            <div>
+              <h3 class="font-headline-md font-bold text-on-surface mb-2">يفهم اللهجات العربية بدقة</h3>
+              <p class="font-body-md text-on-surface-variant max-w-md">البوت بيحكي عربي فصيح أو باللهجة اللبنانية، بأسلوب مهذب وواضح مطابق لهوية شركتك.</p>
+            </div>
+          </div>
+          <div class="absolute -bottom-10 -left-10 text-primary-fixed opacity-20 transform -rotate-12 group-hover:scale-110 transition-transform duration-500">
+            <span class="material-symbols-outlined text-[150px]">record_voice_over</span>
+          </div>
+        </div>
+        <div class="col-span-1 row-span-1 bg-surface-container-highest rounded-3xl p-8 border border-outline-variant hover:shadow-md transition-shadow">
+          <div class="w-12 h-12 rounded-xl bg-secondary text-on-secondary flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined">dataset</span>
+          </div>
+          <h3 class="font-headline-md font-bold text-on-surface mb-2 text-xl">يتعلم من ملفاتك</h3>
+          <p class="font-body-md text-on-surface-variant text-sm">ارفع ملف PDF أو Excel، أو خلّي البوت ياخد المعلومات من موقعك مباشرة.</p>
+        </div>
+        <div class="col-span-1 row-span-1 bg-surface-container-lowest shadow-sm rounded-3xl p-8 border border-outline-variant hover:shadow-md transition-shadow">
+          <div class="w-12 h-12 rounded-xl bg-tertiary-container text-on-tertiary-container flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined">forum</span>
+          </div>
+          <h3 class="font-headline-md font-bold text-on-surface mb-2 text-xl">واتساب + الموقع</h3>
+          <p class="font-body-md text-on-surface-variant text-sm">ربط مباشر مع WhatsApp Business وودجت شات جاهز يترّكب بموقعك بسطر كود واحد.</p>
+        </div>
+        <div class="col-span-1 md:col-span-2 row-span-1 bg-primary text-on-primary rounded-3xl p-8 hover:shadow-lg transition-shadow relative overflow-hidden">
+          <div class="w-12 h-12 rounded-xl bg-on-primary/20 flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined">support_agent</span>
+          </div>
+          <h3 class="font-headline-md font-bold mb-2 text-xl">التصعيد للبشر عند الحاجة</h3>
+          <p class="font-body-md text-on-primary/80 max-w-md text-sm">لما زبون يحتاج مساعدة إنسان فعلي أو يبان مستاء، البوت بيصعّد المحادثة فوراً لرقمك.</p>
+          <div class="absolute left-8 top-8 bg-error text-on-error px-3 py-1 rounded-full font-label-sm flex items-center gap-1 shadow-sm">
+            <span class="material-symbols-outlined text-[14px]">notifications_active</span>
+            تنبيه للموظف
+          </div>
+        </div>
+        <div class="col-span-1 row-span-1 bg-surface-container-low rounded-3xl p-8 border border-outline-variant hover:shadow-md transition-shadow">
+          <div class="w-12 h-12 rounded-xl bg-surface-tint text-on-primary flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined">analytics</span>
+          </div>
+          <h3 class="font-headline-md font-bold text-on-surface mb-2 text-xl">تحليلات متعمقة</h3>
+          <p class="font-body-md text-on-surface-variant text-sm">لوحة تحكّم تعطيك نظرة شاملة على عدد المحادثات والرسائل وسقف باقتك.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="py-24 bg-surface-bright border-t border-outline-variant" id="pricing">
+    <div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+      <div class="text-center mb-16">
+        <h2 class="font-headline-lg text-3xl md:text-4xl font-bold text-on-surface mb-4">خطط تناسب حجم عملك</h2>
+        <p class="font-body-md text-on-surface-variant max-w-xl mx-auto">تجربة مجانية ٧ أيام على كل الباقات، بدون بطاقة ائتمان.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+        <div class="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant shadow-sm flex flex-col h-full">
+          <div class="mb-8">
+            <h3 class="font-headline-md font-bold text-on-surface">البداية</h3>
+            <p class="text-on-surface-variant font-body-md text-sm mt-2">للمشاريع الصغيرة يلي بدها تبلّش</p>
+            <div class="mt-4 flex items-baseline gap-1">
+              <span class="font-display-lg font-bold text-on-surface">٢٩$</span>
+              <span class="text-on-surface-variant font-label-md">/ شهرياً</span>
+            </div>
+          </div>
+          <ul class="flex-1 flex flex-col gap-4 mb-8">
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>٥٠٠ رسالة شهرياً</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>🎤 ١٥ دقيقة رسائل صوتية شهرياً</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>ربط واتساب بزنس</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>معرفة من ملف أو موقع</li>
+          </ul>
+          <a href="/public/signup" class="w-full text-center py-3 rounded-xl border border-primary text-primary font-label-md hover:bg-primary-container hover:text-on-primary-container transition-colors">ابدأ التجربة</a>
+        </div>
+        <div class="bg-primary text-on-primary rounded-3xl p-8 border-2 border-primary-fixed shadow-xl flex flex-col h-full md:h-[105%] relative z-10 md:-translate-y-4">
+          <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-secondary text-on-secondary px-4 py-1 rounded-full font-label-sm shadow-md whitespace-nowrap">الأكثر طلباً</div>
+          <div class="mb-8 mt-2">
+            <h3 class="font-headline-md font-bold">النمو</h3>
+            <p class="text-on-primary/80 font-body-md text-sm mt-2">للمتاجر والشركات المتنامية</p>
+            <div class="mt-4 flex items-baseline gap-1">
+              <span class="font-display-lg font-bold">٥٩$</span>
+              <span class="text-on-primary/80 font-label-md">/ شهرياً</span>
+            </div>
+          </div>
+          <ul class="flex-1 flex flex-col gap-4 mb-8">
+            <li class="flex items-center gap-3 font-body-md text-sm"><span class="material-symbols-outlined text-secondary-fixed text-[20px]">check</span>١,٥٠٠ رسالة شهرياً</li>
+            <li class="flex items-center gap-3 font-body-md text-sm"><span class="material-symbols-outlined text-secondary-fixed text-[20px]">check</span>🎤 ٤٥ دقيقة رسائل صوتية شهرياً</li>
+            <li class="flex items-center gap-3 font-body-md text-sm"><span class="material-symbols-outlined text-secondary-fixed text-[20px]">check</span>واتساب + ودجت الموقع</li>
+            <li class="flex items-center gap-3 font-body-md text-sm"><span class="material-symbols-outlined text-secondary-fixed text-[20px]">check</span>لوحة تحليلات كاملة</li>
+            <li class="flex items-center gap-3 font-body-md text-sm"><span class="material-symbols-outlined text-secondary-fixed text-[20px]">check</span>تصدير بيانات لإكسل</li>
+          </ul>
+          <a href="/public/signup" class="w-full text-center py-3 rounded-xl bg-surface text-primary font-bold font-label-md hover:bg-surface-container-low transition-colors shadow-sm">ابدأ الآن مجاناً</a>
+        </div>
+        <div class="bg-surface-container-lowest rounded-3xl p-8 border border-outline-variant shadow-sm flex flex-col h-full">
+          <div class="mb-8">
+            <h3 class="font-headline-md font-bold text-on-surface">الاحترافي</h3>
+            <p class="text-on-surface-variant font-body-md text-sm mt-2">لأعلى حجم محادثات وأولوية دعم</p>
+            <div class="mt-4 flex items-baseline gap-1">
+              <span class="font-display-lg font-bold text-on-surface">٩٩$</span>
+              <span class="text-on-surface-variant font-label-md">/ شهرياً</span>
+            </div>
+          </div>
+          <ul class="flex-1 flex flex-col gap-4 mb-8">
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>٥,٠٠٠ رسالة شهرياً</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>🎤 ١٢٠ دقيقة رسائل صوتية شهرياً</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>كل القنوات</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>برنامج إحالة ومكافآت</li>
+            <li class="flex items-center gap-3 font-body-md text-on-surface text-sm"><span class="material-symbols-outlined text-secondary text-[20px]">check</span>دعم أولوية</li>
+          </ul>
+          <a href="/public/signup" class="w-full text-center py-3 rounded-xl border border-primary text-primary font-label-md hover:bg-primary-container hover:text-on-primary-container transition-colors">ابدأ التجربة</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top-up packs -->
+  <section class="pb-24 bg-surface-bright">
+    <div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+      <div class="bg-surface-container-low rounded-3xl p-8 border border-outline-variant max-w-2xl mx-auto text-center">
+        <h3 class="font-headline-sm font-bold text-on-surface mb-2">⚡ خلصت رسائل باقتك؟ اشحن بدون ما تستنى التجديد</h3>
+        <p class="text-on-surface-variant font-body-md text-sm mb-6">باقات شحن مرنة — سعر الرسالة فيها أعلى شوي من الباقة، لهيك الاشتراك بيضل دايماً الخيار الأذكى.</p>
+        <div class="flex justify-center gap-4 flex-wrap font-label-md">
+          <span class="bg-surface-container-lowest border border-outline-variant rounded-full px-5 py-2">⚡ ١٠٠ رسالة — ٨$</span>
+          <span class="bg-surface-container-lowest border border-outline-variant rounded-full px-5 py-2">⚡ ٣٠٠ رسالة — ٢١$</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="py-24 relative overflow-hidden bg-primary text-on-primary">
+    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 20% 50%, #ffffff 0%, transparent 50%), radial-gradient(circle at 80% 80%, #ffffff 0%, transparent 50%);"></div>
+    <div class="max-w-4xl mx-auto text-center px-margin-mobile relative z-10">
+      <h2 class="font-display-lg text-3xl md:text-5xl font-bold mb-6">مستعد لتقديم خدمة عملاء لا تنام؟</h2>
+      <p class="font-body-lg text-on-primary/80 mb-10 max-w-2xl mx-auto">جهّز بوتك اليوم، مجاناً لمدة ٧ أيام — بدون بطاقة ائتمان ولا خبرة تقنية.</p>
+      <div class="flex flex-col sm:flex-row-reverse justify-center gap-4">
+        <a href="/public/signup" class="px-8 py-4 rounded-xl bg-secondary text-on-secondary font-headline-sm font-bold shadow-lg hover:bg-secondary-fixed hover:text-on-secondary-fixed transition-colors">أنشئ حسابك مجاناً</a>
+        <a href="#pricing" class="px-8 py-4 rounded-xl border border-outline-variant text-on-primary hover:bg-white/10 transition-colors font-headline-sm">شوف الباقات</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="bg-surface-container-highest border-t border-outline-variant">
+  <div class="flex flex-col md:flex-row-reverse justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-12 max-w-container-max mx-auto gap-8">
+    <div class="flex flex-col items-center md:items-end gap-2">
+      <div class="font-headline-sm text-headline-sm font-bold text-primary flex items-center gap-2">
+        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+        ساعدني AI
+      </div>
+      <p class="font-body-md text-body-md text-on-surface mt-2 text-center md:text-right">© 2026 ساعدني AI. جميع الحقوق محفوظة. صنع في لبنان.</p>
+    </div>
+    <nav class="flex flex-wrap justify-center md:justify-start gap-6">
+      <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors underline-offset-4 hover:underline" href="/auth">دخول العملاء</a>
+      <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors underline-offset-4 hover:underline" href="/privacy">سياسة الخصوصية</a>
+      <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors underline-offset-4 hover:underline" href="/terms">الشروط والأحكام</a>
+      <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors underline-offset-4 hover:underline" href="/cookies">سياسة الكوكيز</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var STORAGE_KEY = "cookie-consent";
+  var banner = document.getElementById("cookie-banner");
+  try {
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      setTimeout(function () { banner.classList.remove("translate-y-full"); }, 500);
+    }
+  } catch (e) {
+    banner.classList.remove("translate-y-full");
+  }
+  document.getElementById("cookie-accept").addEventListener("click", function () {
+    try { localStorage.setItem(STORAGE_KEY, "accepted"); } catch (e) {}
+    banner.classList.add("translate-y-full");
+  });
+})();
+</script>
+
+<!-- Micro-interactions (Motion — motion.dev vanilla build). Scroll-reveal + tactile hover/press
+     on elements that don't already carry a Tailwind hover:transform class, to avoid two systems
+     fighting over the same `transform` property. -->
+<script type="module">
+  import { animate, inView, stagger } from "https://cdn.jsdelivr.net/npm/motion@latest/+esm";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduceMotion) initMicroInteractions();
+
+  function initMicroInteractions() {
+  var EASE = [0.22, 1, 0.36, 1];
+
+  // Scroll-reveal: feature cards (fade + rise, staggered as each enters view)
+  var featureCards = Array.prototype.slice.call(document.querySelectorAll("#features .grid > div"));
+  featureCards.forEach(function (el) { el.style.opacity = "0"; el.style.transform = "translateY(28px)"; });
+  featureCards.forEach(function (el) {
+    inView(el, function () {
+      animate(el, { opacity: 1, transform: "translateY(0px)" }, { duration: 0.6, easing: EASE });
+    }, { amount: 0.3 });
+  });
+
+  // Scroll-reveal: pricing cards — opacity-only (the highlighted "النمو" card carries its own
+  // Tailwind -translate-y-4 offset; animating `transform` here would clobber it)
+  var pricingCards = Array.prototype.slice.call(document.querySelectorAll("#pricing .grid > div"));
+  pricingCards.forEach(function (el) { el.style.opacity = "0"; });
+  inView("#pricing .grid", function () {
+    animate(pricingCards, { opacity: 1 }, { duration: 0.5, delay: stagger(0.12) });
+  }, { amount: 0.2 });
+
+  // Scroll-reveal: final CTA band
+  var ctaEls = Array.prototype.slice.call(document.querySelectorAll("main > section:last-of-type .relative.z-10 > *"));
+  ctaEls.forEach(function (el) { el.style.opacity = "0"; el.style.transform = "translateY(20px)"; });
+  inView("main > section:last-of-type", function () {
+    animate(ctaEls, { opacity: 1, transform: "translateY(0px)" }, { duration: 0.6, delay: stagger(0.1), easing: EASE });
+  }, { amount: 0.4 });
+
+  // Tactile hover/press: feature cards
+  featureCards.forEach(function (card) {
+    card.addEventListener("pointerenter", function () { animate(card, { transform: "translateY(-6px)" }, { duration: 0.25, easing: "ease-out" }); });
+    card.addEventListener("pointerleave", function () { animate(card, { transform: "translateY(0px)" }, { duration: 0.25, easing: "ease-out" }); });
+  });
+
+  // Tactile hover/press: buttons that don't already have a Tailwind hover:transform utility
+  var scaleButtons = document.querySelectorAll(
+    "#pricing a.rounded-xl, main > section:last-of-type a.rounded-xl, section.pt-24 a[href='#pricing']"
+  );
+  scaleButtons.forEach(function (btn) {
+    btn.addEventListener("pointerenter", function () { animate(btn, { scale: 1.045 }, { duration: 0.2, easing: "ease-out" }); });
+    btn.addEventListener("pointerleave", function () { animate(btn, { scale: 1 }, { duration: 0.2, easing: "ease-out" }); });
+    btn.addEventListener("pointerdown", function () { animate(btn, { scale: 0.97 }, { duration: 0.1 }); });
+    btn.addEventListener("pointerup", function () { animate(btn, { scale: 1.045 }, { duration: 0.15 }); });
+  });
+  }
+</script>
+
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       

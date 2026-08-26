@@ -1,119 +1,143 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html class="scroll-smooth" dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>سجّل شركتك — بوت خدمة عملاء بالذكاء الاصطناعي</title>
-<link rel="stylesheet" href="/public/style.css" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>سجّل شركتك — ساعدني AI</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  body { font-family: "IBM Plex Sans Arabic", sans-serif; }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 20px; direction: ltr; }
+  .banner { display:flex; gap:8px; align-items:flex-start; padding:12px 14px; border-radius:0.75rem; font-size:14px; margin-bottom:16px; }
+  .banner.danger { background:#ffdad6; color:#93000a; }
+  .field-error { display:none; color:#ba1a1a; font-size:12.5px; margin-top:4px; }
+  .field-error.show { display:block; }
+  input.invalid { border-color: #ba1a1a !important; }
+  .spinner { display:none; width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; }
+  #submit-btn.loading .spinner { display:inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
-<body>
+<body class="bg-background text-on-background min-h-screen flex flex-col items-center justify-center py-12 px-4 md:px-8">
 
-<div class="brand">
-  <span class="logo-dot">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-    </svg>
-  </span>
-  بوت خدمة العملاء
-</div>
+<div id="loading-state" class="text-center"><p class="text-on-surface-variant">لحظة...</p></div>
 
-<div class="card">
-
-  <!-- ===== حالة النموذج ===== -->
-  <div id="form-state">
-    <div class="steps">
-      <div class="step active"></div>
-      <div class="step"></div>
-      <div class="step"></div>
-      <div class="step"></div>
+<main class="w-full max-w-4xl mx-auto flex flex-col gap-8" id="form-state" style="display:none;">
+  <div class="text-center space-y-2">
+    <div class="inline-flex items-center gap-2 mb-2">
+      <span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+      <span class="font-bold text-primary text-lg">ساعدني AI</span>
     </div>
-    <p class="step-label">الخطوة ١ من ٤</p>
-    <h1>خلّي بوت يرد على زبائنك</h1>
-    <p class="subtitle">عبّي معلومات شركتك، وبالخطوة الجاية بترفع ملف منتجاتك أو رابط موقعك وبتصير جاهز خلال دقائق.</p>
+    <h1 class="font-headline-lg text-headline-lg text-primary">إعداد البوت الجديد</h1>
+    <p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto">عبّي معلومات شركتك، وبالخطوة الجاية بترفع ملف منتجاتك أو رابط موقعك وبتصير جاهز خلال دقائق.</p>
+  </div>
 
+  <!-- Stepper -->
+  <div class="flex items-center justify-between relative w-full max-w-2xl mx-auto mb-4 px-4">
+    <div class="absolute top-1/2 left-0 right-0 h-1 bg-surface-variant -translate-y-1/2 z-0 mx-8"></div>
+    <div class="absolute top-1/2 right-0 h-1 bg-primary -translate-y-1/2 z-0 mx-8" style="width: 0%;"></div>
+    <div class="relative z-10 flex flex-col items-center gap-2">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-on-primary shadow-sm"><span class="material-symbols-outlined text-sm">business</span></div>
+      <span class="text-xs text-primary absolute -bottom-6 whitespace-nowrap">تفاصيل الشركة</span>
+    </div>
+    <div class="relative z-10 flex flex-col items-center gap-2">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-on-surface-variant border border-outline-variant shadow-sm"><span class="material-symbols-outlined text-sm">upload_file</span></div>
+      <span class="text-xs text-on-surface-variant absolute -bottom-6 whitespace-nowrap">رفع المعرفة</span>
+    </div>
+    <div class="relative z-10 flex flex-col items-center gap-2">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-on-surface-variant border border-outline-variant shadow-sm"><span class="material-symbols-outlined text-sm">rocket_launch</span></div>
+      <span class="text-xs text-on-surface-variant absolute -bottom-6 whitespace-nowrap">معاينة وتفعيل</span>
+    </div>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant p-6 md:p-8">
     <div id="form-banner"></div>
 
-    <form id="signup-form" novalidate>
-      <div class="field">
-        <label for="companyName">اسم الشركة</label>
-        <input type="text" id="companyName" name="companyName" autocomplete="organization" placeholder="مثلاً: صيدلية النور" />
-        <div class="field-error" data-error-for="companyName">اسم الشركة مطلوب</div>
+    <form id="signup-form" novalidate class="space-y-6">
+      <h2 class="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-4">معلومات الشركة الأساسية</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-on-surface" for="companyName">اسم الشركة / المتجر <span class="text-error">*</span></label>
+          <input class="w-full bg-surface text-on-surface rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary p-3 transition-colors" id="companyName" name="companyName" autocomplete="organization" placeholder="مثلاً: صيدلية النور" type="text" />
+          <p class="field-error" data-error-for="companyName">اسم الشركة مطلوب</p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-on-surface" for="websiteUrl">رابط موقعك <span class="text-error">*</span></label>
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined absolute right-3 text-outline">language</span>
+            <input class="w-full bg-surface text-on-surface rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary p-3 pr-10 text-left transition-colors" dir="ltr" id="websiteUrl" name="websiteUrl" autocomplete="url" placeholder="https://your-company.com" type="url" />
+          </div>
+          <p class="field-error" data-error-for="websiteUrl">رابط موقع صحيح مطلوب</p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-on-surface" for="escalationPhone">رقم تواصل لزبائنك <span class="text-error">*</span></label>
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined absolute right-3 text-outline">phone</span>
+            <input class="w-full bg-surface text-on-surface rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary p-3 pr-10 text-left transition-colors" dir="ltr" id="escalationPhone" name="escalationPhone" autocomplete="tel" placeholder="+961-XX-XXXXXX" type="tel" />
+          </div>
+          <p class="text-xs text-on-surface-variant">البوت بيعطي هالرقم لأي زبون بده يحكي مع إنسان مباشرة.</p>
+          <p class="field-error" data-error-for="escalationPhone">رقم تواصل مطلوب</p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-on-surface" for="notifyWhatsapp">رقم واتسابك (للإشعارات) <span class="text-error">*</span></label>
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined absolute right-3 text-outline text-[#25D366]">chat</span>
+            <input class="w-full bg-surface text-on-surface rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary p-3 pr-10 text-left transition-colors" dir="ltr" id="notifyWhatsapp" name="notifyWhatsapp" autocomplete="tel" placeholder="9613xxxxxx" type="tel" />
+          </div>
+          <p class="text-xs text-on-surface-variant">منستخدمه لنبعتلك إشعار لما زبون يطلب يحكي مع إنسان.</p>
+          <p class="field-error" data-error-for="notifyWhatsapp">رقم واتساب مطلوب</p>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="contactEmail">إيميلك</label>
-        <input type="email" id="contactEmail" name="contactEmail" autocomplete="email" placeholder="you@company.com" />
-        <p class="hint">رح نبعتلك رابط تأكيد عليه قبل ما نكمل.</p>
-        <div class="field-error" data-error-for="contactEmail">إيميل غير صحيح</div>
+      <div class="flex items-center gap-3">
+        <input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary bg-surface cursor-pointer" id="acceptedTerms" name="acceptedTerms" type="checkbox" />
+        <label class="text-sm text-on-surface-variant cursor-pointer select-none" for="acceptedTerms">
+          موافق إنه البوت يرد باسم شركتي على زبائني، وموافق على <a class="text-primary hover:underline" href="/terms" target="_blank" rel="noopener">الشروط والأحكام</a> و<a class="text-primary hover:underline" href="/privacy" target="_blank" rel="noopener">سياسة الخصوصية</a>.
+        </label>
       </div>
 
-      <div class="field">
-        <label for="notifyWhatsapp">رقم واتسابك (للإشعارات)</label>
-        <input type="tel" id="notifyWhatsapp" name="notifyWhatsapp" autocomplete="tel" placeholder="9613xxxxxx" />
-        <p class="hint">منستخدمه لنبعتلك إشعار لما زبون يطلب يحكي مع إنسان.</p>
-        <div class="field-error" data-error-for="notifyWhatsapp">رقم واتساب مطلوب</div>
+      <div class="flex justify-end pt-6 border-t border-outline-variant">
+        <button type="submit" id="submit-btn" class="bg-primary hover:bg-primary-container text-on-primary font-medium px-6 py-3 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-60">
+          <span class="spinner"></span>
+          <span>التالي: إضافة المعرفة</span>
+          <span class="material-symbols-outlined text-sm rotate-180">arrow_forward</span>
+        </button>
       </div>
-
-      <div class="field">
-        <label for="escalationPhone">رقم تواصل لزبائنك</label>
-        <input type="tel" id="escalationPhone" name="escalationPhone" autocomplete="tel" placeholder="+961-XX-XXXXXX" />
-        <p class="hint">البوت بيعطي هالرقم لأي زبون بده يحكي مع إنسان مباشرة.</p>
-        <div class="field-error" data-error-for="escalationPhone">رقم تواصل مطلوب</div>
-      </div>
-
-      <div class="field">
-        <label for="websiteUrl">رابط موقعك</label>
-        <input type="url" id="websiteUrl" name="websiteUrl" autocomplete="url" placeholder="https://your-company.com" />
-        <p class="hint">لازم يكون رابط شغّال — منستخدمه كمان لحماية مفتاح البوت تبعك.</p>
-        <div class="field-error" data-error-for="websiteUrl">رابط موقع صحيح مطلوب</div>
-      </div>
-
-      <label class="checkbox-row">
-        <input type="checkbox" id="acceptedTerms" name="acceptedTerms" />
-        <span>موافق إنه البوت يرد باسم شركتي على زبائني، وإنه المعلومات يلي رح أرفعها صحيحة.</span>
-      </label>
-
-      <button type="submit" class="btn btn-primary" id="submit-btn">
-        <span class="spinner"></span>
-        <span class="btn-text">التالي — تأكيد الإيميل</span>
-      </button>
     </form>
   </div>
-
-  <!-- ===== حالة "تحقق من إيميلك" ===== -->
-  <div id="sent-state" class="center-state" style="display:none;">
-    <div class="email-sent-icon">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1f6f5c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 4h16v16H4z" opacity="0"/>
-        <path d="M3 6.5 12 13l9-6.5"/>
-        <rect x="3" y="5" width="18" height="14" rx="2"/>
-      </svg>
-    </div>
-    <h1>تحقق من إيميلك</h1>
-    <p class="subtitle">بعتنالك رابط تأكيد على <b id="sent-email-display" style="color:var(--ink)"></b>. دوس عليه لتكمل إعداد بوتك.</p>
-    <p class="footer-note">ما وصلك شي؟ تأكد من مجلد الرسائل غير المرغوبة (spam)، أو <button type="button" id="resend-btn" class="copy-btn" style="display:inline-flex;">جرب تسجّل من جديد</button></p>
-  </div>
-
-</div>
+</main>
 
 <script>
 (function () {
   var API = "/api/v1";
 
+  var loadingState = document.getElementById("loading-state");
   var formState = document.getElementById("form-state");
-  var sentState = document.getElementById("sent-state");
   var form = document.getElementById("signup-form");
   var submitBtn = document.getElementById("submit-btn");
   var banner = document.getElementById("form-banner");
 
+  fetch("/auth/me", { credentials: "include" })
+    .then(function (r) {
+      if (r.status !== 200) { window.location.href = "/auth"; return Promise.reject("redirecting"); }
+      return r.json();
+    })
+    .then(function () {
+      loadingState.style.display = "none";
+      formState.style.display = "flex";
+    })
+    .catch(function (e) { if (e !== "redirecting") window.location.href = "/auth"; });
+
   function showBanner(type, message) {
-    banner.innerHTML =
-      '<div class="banner ' + type + '">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      (type === "danger"
-        ? '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>'
-        : '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>') +
-      "</svg><span>" + message + "</span></div>";
+    banner.innerHTML = '<div class="banner ' + type + '"><span>' + message + "</span></div>";
   }
 
   function clearFieldErrors() {
@@ -140,17 +164,14 @@
 
     var data = {
       companyName: form.companyName.value.trim(),
-      contactEmail: form.contactEmail.value.trim(),
       notifyWhatsapp: form.notifyWhatsapp.value.trim(),
       escalationPhone: form.escalationPhone.value.trim(),
       websiteUrl: form.websiteUrl.value.trim(),
       acceptedTerms: form.acceptedTerms.checked,
     };
 
-    // تحقق أولي بالمتصفح — الخادم بيتحقق كمان، هاد بس لتجربة أسرع وأوضح للمستخدم
     var missing = [];
     if (data.companyName.length < 2) missing.push("companyName");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.contactEmail)) missing.push("contactEmail");
     if (data.notifyWhatsapp.length < 6) missing.push("notifyWhatsapp");
     if (data.escalationPhone.length < 6) missing.push("escalationPhone");
     if (!/^https?:\/\//.test(data.websiteUrl)) missing.push("websiteUrl");
@@ -166,8 +187,9 @@
     }
 
     setLoading(true);
-    fetch(API + "/signup", {
+    fetch(API + "/signup/start", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     })
@@ -177,22 +199,16 @@
           showBanner("danger", (res.body.error && res.body.error.message) || "صار خطأ، جرب كمان شوي");
           return;
         }
-        document.getElementById("sent-email-display").textContent = data.contactEmail;
-        formState.style.display = "none";
-        sentState.style.display = "block";
+        window.location.href = "/public/onboard?pendingId=" + encodeURIComponent(res.body.pendingId);
       })
       .catch(function () {
         showBanner("danger", "ما قدرنا نوصل للسيرفر. تأكد من الاتصال وجرب كمان شوي.");
       })
       .finally(function () { setLoading(false); });
   });
-
-  document.getElementById("resend-btn").addEventListener("click", function () {
-    sentState.style.display = "none";
-    formState.style.display = "block";
-  });
 })();
 </script>
 
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     

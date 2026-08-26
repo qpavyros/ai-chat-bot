@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>إدارة البوت — ساعدني AI</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 20px; direction: ltr; }
+  .field-label { display:block; font-size:14px; color:#444653; margin-bottom:6px; }
+  .field-input { width:100%; background:#fbf8ff; border:1px solid #c4c5d5; border-radius:0.5rem; padding:11px 12px; color:#1a1b22; outline:none; transition:box-shadow .15s, border-color .15s; }
+  .field-input:focus { border-color:#00288e; box-shadow:0 0 0 3px rgba(0,40,142,.12); }
+  .upload-tab.active { color:#00288e; border-color:#00288e; }
+  .dropzone.dragover, .dropzone:hover { border-color:#00288e; background:#eeedf7; }
+  .switch { position: relative; display:inline-flex; align-items:center; width:42px; height:24px; flex:none; cursor:pointer; }
+  .switch input { opacity:0; width:0; height:0; position:absolute; }
+  .switch .track { position:absolute; inset:0; background:#c4c5d5; border-radius:999px; transition:background .2s; }
+  .switch .track::before { content:""; position:absolute; width:18px; height:18px; right:3px; top:3px; background:#fff; border-radius:50%; transition:transform .2s; }
+  .switch input:checked + .track { background:#00288e; }
+  .switch input:checked + .track::before { transform:translateX(-18px); }
+  .switch input:disabled + .track { opacity:.5; cursor:not-allowed; }
+  .banner { padding:10px 14px; border-radius:0.6rem; font-size:14px; margin-bottom:14px; }
+  .banner.danger { background:#ffdad6; color:#93000a; }
+  .banner.success { background:#e6f4ea; color:#146c2e; }
+  .spinner { display:none; width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; }
+  .loading .spinner { display:inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .save-note { font-size:12.5px; color:#146c2e; display:none; margin-top:8px; }
+  .save-note.show { display:block; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(26,27,34,.5); display:none; align-items:center; justify-content:center; padding:16px; z-index:100; }
+  .modal-overlay.show { display:flex; }
+</style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+
+<div class="max-w-3xl mx-auto px-4 md:px-8 py-10">
+  <a href="/dashboard" class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary text-sm mb-6" style="text-decoration:none;">
+    <span class="material-symbols-outlined text-base">arrow_forward</span>رجوع للوحة التحكّم
+  </a>
+
+  <div id="loading" class="text-center py-20"><p class="text-on-surface-variant">لحظة...</p></div>
+  <div id="content" style="display:none;"></div>
+</div>
+
+<div class="modal-overlay" id="password-modal">
+  <div class="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl">
+    <h3 class="font-headline-md text-headline-md mb-1">أدخل كلمة سر حسابك للمتابعة</h3>
+    <p class="text-sm text-on-surface-variant mb-4">حذف البوت إجراء نهائي — لازم نتأكد إنه إنت فعلاً صاحب الحساب.</p>
+    <div id="password-modal-banner"></div>
+    <input type="password" id="delete-password-input" placeholder="كلمة السر" dir="ltr" class="field-input mb-4" />
+    <div class="flex justify-end gap-3">
+      <button type="button" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low text-sm" id="password-modal-cancel">إلغاء</button>
+      <button type="button" class="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center gap-2" id="password-modal-confirm">
+        <span class="spinner"></span><span class="btn-text">تأكيد</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="transcript-modal" style="display:none;">
+  <div class="bg-surface-container-lowest rounded-2xl w-full max-w-2xl shadow-xl flex flex-col" style="max-height:80vh;">
+    <div class="flex justify-between items-center p-4 border-b border-outline-variant">
+      <h3 class="font-headline-sm text-headline-sm" id="transcript-title">محادثة</h3>
+      <button type="button" id="transcript-close" class="text-on-surface-variant hover:text-error px-2 text-xl">&times;</button>
+    </div>
+    <div id="transcript-body" class="p-4 overflow-y-auto"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirm-name-modal">  <div class="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl">
+    <h3 class="font-headline-md text-headline-md mb-1 text-error">تأكيد نهائي</h3>
+    <p class="text-sm text-on-surface-variant mb-4">هالإجراء بيحذف كل بيانات ومحادثات هالبوت. اكتب اسم البوت بالضبط للتأكيد: <b id="confirm-name-target" class="text-on-surface"></b></p>
+    <input type="text" id="confirm-name-input" dir="rtl" class="field-input mb-4" />
+    <div class="flex justify-end gap-3">
+      <button type="button" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low text-sm" id="confirm-name-cancel">إلغاء</button>
+      <button type="button" class="px-4 py-2 rounded-lg bg-error text-on-error text-sm font-bold flex items-center gap-2 disabled:opacity-50" id="confirm-name-submit" disabled>
+        <span class="spinner"></span><span class="btn-text">احذف نهائياً</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script>
+(function () {
+  var clientId = location.pathname.split("/").pop();
+  var state = null;
+  var firebaseReady = fetch("/auth/firebase-config").then(function (r) { return r.json(); }).then(function (cfg) {
+    firebase.initializeApp(cfg);
+  });
+
+  function esc(s) {
+    var div = document.createElement("div");
+    div.textContent = s == null ? "" : String(s);
+    return div.innerHTML;
+  }
+
+  // مودال المحادثة: إغلاق بزر X أو Esc أو الضغط على الخلفية
+  document.getElementById("transcript-close").addEventListener("click", function () {
+    document.getElementById("transcript-modal").style.display = "none";
+  });
+  document.getElementById("transcript-modal").addEventListener("click", function (e) {
+    if (e.target === this) this.style.display = "none";
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") document.getElementById("transcript-modal").style.display = "none";
+  });
+
+  fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/summary", { credentials: "include" })
+    .then(function (r) {
+      if (r.status === 401) { window.location.href = "/auth"; return Promise.reject("redirecting"); }
+      if (r.status === 404) { document.getElementById("loading").innerHTML = '<p class="text-on-surface-variant">بوت غير موجود.</p>'; return Promise.reject("not-found"); }
+      return r.json();
+    })
+    .then(function (data) { state = data; render(); loadReport(); loadConversations(); })
+    .catch(function (e) { if (e !== "redirecting" && e !== "not-found") document.getElementById("loading").innerHTML = '<p class="text-on-surface-variant">صار خطأ، جرب تحدّث الصفحة.</p>'; });
+
+  // ===== سجل المحادثات: لائحة + عرض محادثة كاملة + تصدير Excel =====
+  function loadConversations() {
+    var box = document.getElementById("conversations-box");
+    if (!box) return;
+    fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/conversations", { credentials: "include" })
+      .then(function (r) { if (!r.ok) throw new Error("failed"); return r.json(); })
+      .then(function (data) {
+        var list = data.conversations || [];
+        if (!list.length) {
+          box.innerHTML = '<p class="text-sm text-on-surface-variant">لسا ما في محادثات زبائن حقيقية.</p>';
+          return;
+        }
+        var rows = list.slice(0, 50).map(function (c) {
+          return (
+            '<tr class="border-b border-outline-variant">' +
+            '<td class="py-2 px-2 text-xs" dir="ltr">' + esc(c.userId.slice(0, 24)) + '</td>' +
+            '<td class="py-2 px-2 text-xs text-on-surface-variant">' + esc((c.lastMessageAt || "").slice(0, 16).replace("T", " ")) + '</td>' +
+            '<td class="py-2 px-2 text-sm max-w-[220px] truncate" title="' + esc(c.lastMessage) + '">' + esc(c.lastMessage) + '</td>' +
+            '<td class="py-2 px-2"><button type="button" class="text-primary hover:underline text-sm" data-view-user="' + esc(c.userId) + '">عرض</button></td>' +
+            "</tr>"
+          );
+        }).join("");
+        box.innerHTML =
+          '<div class="flex justify-between items-center mb-3 flex-wrap gap-2">' +
+          '<p class="text-sm text-on-surface-variant">' + esc(list.length) + ' زبون — آخر ٥٠ بالعرض</p>' +
+          '<a href="/dashboard/bots/' + encodeURIComponent(clientId) + '/api/conversations/export.xlsx" download ' +
+          'class="bg-primary text-on-primary text-label-md px-4 py-2 rounded-lg hover:opacity-90 transition-opacity inline-flex items-center gap-2">' +
+          '<span class="material-symbols-outlined text-sm">download</span>تصدير Excel كامل</a></div>' +
+          '<div class="overflow-x-auto"><table class="w-full text-right"><thead>' +
+          '<tr class="text-xs text-on-surface-variant border-b border-outline-variant">' +
+          '<th class="py-2 px-2">الزبون</th><th class="py-2 px-2">آخر نشاط</th><th class="py-2 px-2">آخر رسالة</th><th class="py-2 px-2"></th>' +
+          "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+
+        box.querySelectorAll("[data-view-user]").forEach(function (btn) {
+          btn.addEventListener("click", function () { viewTranscript(btn.getAttribute("data-view-user")); });
+        });
+      })
+      .catch(function () { box.innerHTML = '<p class="text-sm text-error">فشل تحميل المحادثات.</p>'; });
+  }
+
+  function viewTranscript(userId) {
+    var overlay = document.getElementById("transcript-modal");
+    var body = document.getElementById("transcript-body");
+    document.getElementById("transcript-title").textContent = "محادثة: " + userId;
+    body.innerHTML = '<p class="text-sm text-on-surface-variant">عم يتحمّل...</p>';
+    overlay.style.display = "flex";
+    fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/conversations/" + encodeURIComponent(userId) + "/transcript", { credentials: "include" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var lines = data.transcript || [];
+        if (!lines.length) { body.innerHTML = '<p class="text-sm text-on-surface-variant">ما في سجل محفوظ لهالزبون.</p>'; return; }
+        // أقدم أولاً للعرض
+        lines = lines.slice().reverse();
+        body.innerHTML = lines.map(function (l) {
+          return (
+            '<div class="mb-3">' +
+            '<div class="text-[10px] text-on-surface-variant mb-1">' + esc((l.at || "").slice(0, 16).replace("T", " ")) + '</div>' +
+            '<div class="text-sm bg-primary-container/20 rounded-lg p-2 mb-1"><b>الزبون:</b> ' + esc(l.user) + "</div>" +
+            '<div class="text-sm bg-surface-container-low rounded-lg p-2"><b>البوت:</b> ' + esc(l.bot) + "</div>" +
+            "</div>"
+          );
+        }).join("");
+      })
+      .catch(function () { body.innerHTML = '<p class="text-sm text-error">فشل التحميل.</p>'; });
+  }
+
+  function loadReport() {
+    var box = document.getElementById("report-box");
+    if (!box) return;
+    fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/report", { credentials: "include" })
+      .then(function (r) { if (!r.ok) throw new Error("failed"); return r.json(); })
+      .then(function (rep) {
+        var stat = function (label, value) {
+          return '<div class="bg-surface-container-low rounded-xl p-4 text-center">' +
+            '<div class="font-headline-md text-headline-md text-primary">' + esc(value) + '</div>' +
+            '<div class="text-xs text-on-surface-variant mt-1">' + esc(label) + '</div></div>';
+        };
+        box.innerHTML =
+          '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">' +
+          stat("زبون فريد (الكُل)", rep.uniqueCustomers) +
+          stat("نشط آخر ٧ أيام", rep.activeLast7Days) +
+          stat("محادثات جديدة (٣٠ يوم)", rep.conversationsLast30Days) +
+          stat("طلبيات مسجلة", rep.totalOrders) +
+          "</div>" +
+          '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+          '<div class="bg-surface-container-low rounded-xl p-4">' +
+          '<div class="text-label-md font-medium mb-1">التصعيدات لإنسان</div>' +
+          '<div class="text-sm text-on-surface-variant">' + esc(rep.escalationsUnhandled) + ' قيد الانتظار من أصل ' + esc(rep.escalationsTotal) + '</div></div>' +
+          '<div class="bg-surface-container-low rounded-xl p-4">' +
+          '<div class="text-label-md font-medium mb-2">أكثر الأسئلة المتكررة</div>' +
+          (rep.topQuestions.length
+            ? '<ul class="text-sm text-on-surface-variant space-y-1">' +
+              rep.topQuestions.map(function (q) { return "<li>• " + esc(q.question) + (q.count > 1 ? " (" + esc(q.count) + ")" : "") + "</li>"; }).join("") +
+              "</ul>"
+            : '<div class="text-sm text-on-surface-variant">لسا ما في بيانات كافية</div>') +
+          "</div></div>";
+      })
+      .catch(function () { box.innerHTML = '<p class="text-sm text-on-surface-variant">ما قدرنا نجيب التقارير هلق.</p>'; });
+  }
+
+  function render() {
+    document.getElementById("loading").style.display = "none";
+    var content = document.getElementById("content");
+    var capLabel = state.messagesCap
+      ? state.messagesThisPeriod + " / " + state.messagesCap + " رسالة هالفترة"
+      : state.messagesThisPeriod + " رسالة (بدون سقف)";
+    if (state.topUpCreditsRemaining > 0) {
+      capLabel += " + ⚡ رصيد شحن: " + state.topUpCreditsRemaining;
+    }
+    var voiceLine = state.voice
+      ? (state.voice.enabled
+        ? "🎤 الصوت: " + state.voice.minutesUsed + " / " + (state.voice.minutesCap == null ? "∞" : state.voice.minutesCap) + " دقيقة هالشهر"
+        : "🎤 الرد على الصوت معطّل حالياً")
+      : "";
+    var statusBadge = state.botPaused
+      ? '<span class="px-3 py-1 bg-error-container text-on-error-container rounded-full text-label-sm">متوقّف</span>'
+      : '<span class="px-3 py-1 bg-[#ecfdf5] text-[#059669] rounded-full text-label-sm border border-[#059669]/20">نشط الآن</span>';
+
+    content.innerHTML =
+      '<div class="flex justify-between items-end border-b border-outline-variant pb-4 mb-8 flex-wrap gap-3">' +
+      '<div><h1 class="font-headline-lg text-headline-lg text-primary mb-1">' + esc(state.displayName) + '</h1>' +
+      '<p class="text-on-surface-variant text-sm mb-0.5">' + esc(capLabel) + '</p>' +
+      (voiceLine ? '<p class="text-on-surface-variant text-xs">' + esc(voiceLine) + '</p>' : '') + '</div>' +
+      statusBadge +
+      '</div>' +
+
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">monitoring</span>تقارير البوت</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-5">أرقام حقيقية من محادثات زبائنك.</p>' +
+      '<div id="report-box"><div class="text-sm text-on-surface-variant">عم نجهّز التقارير...</div></div>' +
+      '</section>' +
+
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">forum</span>المحادثات</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-5">سجل كامل دائم لكل تبادل صار بين زبائنك والبوت.</p>' +
+      '<div id="conversations-box"><div class="text-sm text-on-surface-variant">عم يتحمّل...</div></div>' +
+      '</section>' +
+
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">info</span>معلومات أساسية</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-6">اسم البوت وطريقة التصعيد لإنسان.</p>' +
+      '<form id="info-form" class="space-y-5">' +
+      '<div class="grid grid-cols-1 md:grid-cols-2 gap-5">' +
+      '<div><label class="field-label" for="displayName">اسم البوت</label><input type="text" id="displayName" class="field-input" value="' + esc(state.displayName) + '" /></div>' +
+      '<div><label class="field-label" for="tone">أسلوب الرد</label><input type="text" id="tone" class="field-input" value="' + esc(state.tone || "") + '" /></div>' +
+      '</div>' +
+      '<div class="grid grid-cols-1 md:grid-cols-2 gap-5">' +
+      '<div><label class="field-label" for="escalationPhone">رقم تواصل لزبائنك</label><input type="text" id="escalationPhone" class="field-input" dir="ltr" value="' + esc(state.escalation.phone || "") + '" /></div>' +
+      '<div><label class="field-label" for="notifyWhatsapp">رقم واتسابك (للإشعارات)</label><input type="text" id="notifyWhatsapp" class="field-input" dir="ltr" value="' + esc(state.escalation.notifyWhatsapp || "") + '" /></div>' +
+      '</div>' +
+      '<div><label class="field-label" for="escalationContactMethod">وصف طريقة التواصل</label><input type="text" id="escalationContactMethod" class="field-input" value="' + esc(state.escalation.contactMethod || "") + '" /></div>' +
+      '<div class="flex items-center gap-4 pt-2">' +
+      '<button type="submit" class="bg-primary text-on-primary text-label-md px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2" id="info-save-btn">' +
+      '<span class="spinner"></span><span class="btn-text">حفظ التعديلات</span></button>' +
+      '<p class="save-note" id="info-save-note">✔ اتحفظ</p>' +
+      '</div>' +
+      '</form></section>' +
+
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">psychology</span>معرفة البوت</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-5">ارفع ملف جديد أو خلّي البوت ياخد من موقعك مباشرة — بيستبدل المعرفة الحالية بالكامل.</p>' +
+      '<div id="knowledge-banner"></div>' +
+      '<div class="flex border-b border-outline-variant mb-5">' +
+      '<button type="button" class="upload-tab active px-4 py-2.5 border-b-2 border-transparent text-label-md font-medium transition-colors" data-tab="file">ملف (PDF / Excel)</button>' +
+      '<button type="button" class="upload-tab px-4 py-2.5 border-b-2 border-transparent text-on-surface-variant hover:text-primary text-label-md font-medium transition-colors" data-tab="website">من موقعي</button>' +
+      '</div>' +
+      '<div id="tab-file"><label class="dropzone border-2 border-dashed border-outline-variant rounded-xl p-6 flex flex-col items-center justify-center text-center bg-surface-container-low transition-colors cursor-pointer block" id="dropzone">' +
+      '<input type="file" id="file-input" accept=".pdf,.xlsx,.xls,.csv" class="hidden" />' +
+      '<div id="dropzone-text"><div class="text-sm">دوس هون لاختيار ملف، أو اسحبه وحطه</div><div class="text-xs text-on-surface-variant mt-1">PDF أو Excel/CSV — حد أقصى 10MB</div></div></label></div>' +
+      '<div id="tab-website" style="display:none;"><p class="text-sm text-on-surface-variant bg-surface-container-low rounded-lg p-4">رح ناخد المعلومات من رابط موقعك المحفوظ.</p></div>' +
+      '<button type="button" class="mt-4 bg-primary text-on-primary text-label-md px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50" id="knowledge-submit-btn" disabled>' +
+      '<span class="spinner"></span><span class="btn-text">استبدل المعرفة</span></button>' +
+      '</section>' +
+
+      '<section class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-primary">toggle_on</span>قنوات التشغيل</h2>' +
+      '<div class="flex items-center justify-between py-3 border-b border-outline-variant">' +
+      '<div><div class="text-label-md font-medium">البوت شغّال (كل القنوات)</div><div class="text-xs text-on-surface-variant mt-0.5">إيقافه بيوقف الرد الآلي كلياً — واتساب والموقع سوا</div></div>' +
+      '<label class="switch"><input type="checkbox" id="toggle-active" ' + (state.botPaused ? "" : "checked") + ' /><span class="track"></span></label></div>' +
+      '<div class="flex items-center justify-between py-3 border-b border-outline-variant">' +
+      '<div><div class="text-label-md font-medium">الرد عبر واتساب</div><div class="text-xs text-on-surface-variant mt-0.5">' + (state.channels.whatsapp.connected ? "متصل" : "مش متصل") + '</div></div>' +
+      '<label class="switch"><input type="checkbox" id="toggle-whatsapp" ' + (state.channels.whatsapp.enabled ? "checked" : "") + (state.channels.whatsapp.connected ? "" : " disabled") + ' /><span class="track"></span></label></div>' +
+      '<div class="flex items-center justify-between py-3">' +
+      '<div class="text-label-md font-medium">الرد عبر ودجت الموقع</div>' +
+      '<label class="switch"><input type="checkbox" id="toggle-web" ' + (state.channels.web.enabled ? "checked" : "") + ' /><span class="track"></span></label></div>' +
+      '<p class="save-note" id="channels-save-note">✔ اتحفظ</p>' +
+      '</section>' +
+
+      (state.channels.whatsapp.connected
+        ? '<section class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+          '<h2 class="font-headline-md text-headline-md mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-secondary">phonelink_erase</span>فصل واتساب</h2>' +
+          '<p class="text-sm text-on-surface-variant mb-4">بيمسح ربط رقم الواتساب نهائياً — لازم تعيد Embedded Signup من جديد لو بدك تربطه تاني.</p>' +
+          '<button type="button" class="w-full bg-background border border-outline-variant text-on-surface hover:bg-surface-container-low text-label-md px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2" id="disconnect-wa-btn">' +
+          '<span class="material-symbols-outlined text-sm">link_off</span>فصل رقم الواتساب</button></section>'
+        : "") +
+
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">tune</span>إعدادات متقدمة</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-6">تحكّم بميزات إضافية للبوت — كلها اختيارية.</p>' +
+
+      '<div class="flex items-center justify-between py-3 border-b border-outline-variant">' +
+      '<div><div class="text-label-md font-medium">🎤 الرد على الرسائل الصوتية</div>' +
+      '<div class="text-xs text-on-surface-variant mt-0.5">سقف دقائق شهري حسب باقتك — ' + esc(state.voice.minutesUsed) + ' / ' + (state.voice.minutesCap == null ? "∞" : esc(state.voice.minutesCap)) + ' دقيقة مستخدمة هالشهر</div></div>' +
+      '<label class="switch"><input type="checkbox" id="toggle-voice" ' + (state.voice.enabled ? "checked" : "") + ' /><span class="track"></span></label></div>' +
+
+      '<div class="flex items-center justify-between py-3 border-b border-outline-variant">' +
+      '<div><div class="text-label-md font-medium">💼 أسلوب البيع النشط</div>' +
+      '<div class="text-xs text-on-surface-variant mt-0.5">البوت بيقرأ نية الزبون وبيحاول يسكّر الصفقة، بدل ما يجاوب أسئلة بس</div></div>' +
+      '<label class="switch"><input type="checkbox" id="toggle-sales-mode" ' + (state.salesMode ? "checked" : "") + ' /><span class="track"></span></label></div>' +
+
+      '<div class="py-4 border-b border-outline-variant">' +
+      '<div class="flex items-center justify-between mb-3">' +
+      '<div><div class="text-label-md font-medium">🌙 ساعات الدوام</div>' +
+      '<div class="text-xs text-on-surface-variant mt-0.5">برّا هالساعات، البوت بيرد برسالة "خارج الدوام" بدل رد عادي (التصعيدات العاجلة بتضل شغالة دايماً)</div></div>' +
+      '<label class="switch"><input type="checkbox" id="toggle-hours" ' + (state.businessHours.enabled ? "checked" : "") + ' /><span class="track"></span></label></div>' +
+      '<div class="grid grid-cols-2 gap-4">' +
+      '<div><label class="field-label" for="hours-start">من الساعة</label><input type="time" id="hours-start" class="field-input" value="' + esc(state.businessHours.start) + '" /></div>' +
+      '<div><label class="field-label" for="hours-end">لحد الساعة</label><input type="time" id="hours-end" class="field-input" value="' + esc(state.businessHours.end) + '" /></div>' +
+      '</div></div>' +
+
+      '<div class="py-4">' +
+      '<div class="text-label-md font-medium mb-3">🎨 تخصيص ودجت الموقع</div>' +
+      '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">' +
+      '<div><label class="field-label" for="widget-color">لون الودجت</label>' +
+      '<input type="color" id="widget-color" value="' + esc(state.widget.accentColor) + '" style="width:100%; height:42px; border:1px solid #c4c5d5; border-radius:0.5rem; padding:3px; cursor:pointer;" /></div>' +
+      '<div><label class="field-label" for="widget-title">عنوان الودجت (اختياري)</label><input type="text" id="widget-title" class="field-input" placeholder="مساعد ' + esc(state.displayName) + '" value="' + esc(state.widget.title) + '" /></div>' +
+      '</div>' +
+      '<label class="field-label" for="widget-suggestions">أسئلة مقترحة (سطر لكل سؤال، حد أقصى 6)</label>' +
+      '<textarea id="widget-suggestions" class="field-input" rows="3">' + esc(state.widget.suggestions.join("\n")) + '</textarea>' +
+      '</div>' +
+
+      '<div class="flex items-center gap-4 pt-4">' +
+      '<button type="button" class="bg-primary text-on-primary text-label-md px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2" id="settings-save-btn">' +
+      '<span class="spinner"></span><span class="btn-text">حفظ الإعدادات المتقدمة</span></button>' +
+      '<p class="save-note" id="settings-save-note">✔ اتحفظ</p>' +
+      '</div>' +
+      '</section>' +
+
+      '<section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">' +
+      '<h2 class="font-headline-md text-headline-md mb-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">forum</span>قنوات إضافية (تلغرام وديسكورد)</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-6">اختياري ومتقدّم — بيحتاج تسجّل بوت خاص بيك عبر BotFather (تلغرام) أو بوابة المطورين (ديسكورد) وتلصق التوكن هون.</p>' +
+
+      '<div id="integrations-banner"></div>' +
+
+      '<div class="mb-5">' +
+      '<label class="field-label" for="telegram-token">توكن بوت تلغرام <span class="text-xs">' + (state.integrations.telegramConnected ? '<span class="text-[#059669]">● متصل</span>' : '<span class="text-on-surface-variant">مش متصل</span>') + '</span></label>' +
+      '<input type="password" id="telegram-token" class="field-input" dir="ltr" placeholder="' + (state.integrations.telegramConnected ? "•••••••• (محفوظ — اكتب توكن جديد لتغييره)" : "123456:ABC-DEF...") + '" />' +
+      '</div>' +
+
+      '<div class="mb-5">' +
+      '<label class="field-label" for="discord-token">توكن بوت ديسكورد <span class="text-xs">' + (state.integrations.discordConnected ? '<span class="text-[#059669]">● متصل</span>' : '<span class="text-on-surface-variant">مش متصل</span>') + '</span></label>' +
+      '<input type="password" id="discord-token" class="field-input" dir="ltr" placeholder="' + (state.integrations.discordConnected ? "•••••••• (محفوظ — اكتب توكن جديد لتغييره)" : "بوت ديسكورد يحتاج Message Content Intent مفعّل") + '" />' +
+      '</div>' +
+
+      '<button type="button" class="bg-primary text-on-primary text-label-md px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2" id="integrations-save-btn">' +
+      '<span class="spinner"></span><span class="btn-text">حفظ القنوات</span></button>' +
+      '</section>' +
+
+      '<section class="bg-error-container/20 p-6 rounded-2xl border border-error/30 shadow-sm">' +
+      '<h2 class="font-headline-md text-headline-md text-error mb-2 flex items-center gap-2"><span class="material-symbols-outlined">warning</span>حذف البوت</h2>' +
+      '<p class="text-sm text-on-surface-variant mb-4">حذف نهائي (مع مهلة استرجاع 30 يوم) — بيحذف كل بيانات ومحادثات هالبوت.</p>' +
+      '<button type="button" class="w-full bg-error text-on-error hover:opacity-90 text-label-md px-4 py-2.5 rounded-lg transition-opacity font-bold flex items-center justify-center gap-2" id="delete-bot-btn">' +
+      '<span class="material-symbols-outlined text-sm">delete_forever</span>حذف البوت</button></section>';
+
+    content.style.display = "block";
+
+    wireInfoForm();
+    wireKnowledgeUpload();
+    wireChannelToggles();
+    wireDisconnectWhatsapp();
+    wireAdvancedSettings();
+    wireIntegrations();
+    wireDeleteBot();
+  }
+
+  function setLoading(btn, loading) {
+    btn.disabled = loading;
+    btn.classList.toggle("loading", loading);
+  }
+
+  function wireInfoForm() {
+    document.getElementById("info-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var btn = document.getElementById("info-save-btn");
+      var note = document.getElementById("info-save-note");
+      note.classList.remove("show");
+      setLoading(btn, true);
+
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/info", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: document.getElementById("displayName").value.trim(),
+          tone: document.getElementById("tone").value.trim(),
+          escalationPhone: document.getElementById("escalationPhone").value.trim(),
+          escalationContactMethod: document.getElementById("escalationContactMethod").value.trim(),
+          notifyWhatsapp: document.getElementById("notifyWhatsapp").value.trim(),
+        }),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (res) {
+          if (res.status === 200) note.classList.add("show");
+        })
+        .finally(function () { setLoading(btn, false); });
+    });
+  }
+
+  function wireKnowledgeUpload() {
+    var activeTab = "file";
+    document.querySelectorAll(".upload-tab").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll(".upload-tab").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        activeTab = btn.getAttribute("data-tab");
+        document.getElementById("tab-file").style.display = activeTab === "file" ? "block" : "none";
+        document.getElementById("tab-website").style.display = activeTab === "website" ? "block" : "none";
+        updateBtn();
+      });
+    });
+
+    var fileInput = document.getElementById("file-input");
+    var submitBtn = document.getElementById("knowledge-submit-btn");
+    function updateBtn() { submitBtn.disabled = activeTab === "file" ? !fileInput.files.length : false; }
+    fileInput.addEventListener("change", updateBtn);
+
+    submitBtn.addEventListener("click", function () {
+      document.getElementById("knowledge-banner").innerHTML = "";
+      var form = new FormData();
+      if (activeTab === "website") form.append("source", "website");
+      else if (fileInput.files.length) form.append("file", fileInput.files[0]);
+      else return;
+
+      setLoading(submitBtn, true);
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/knowledge", { method: "POST", credentials: "include", body: form })
+        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (res) {
+          var banner = document.getElementById("knowledge-banner");
+          if (res.status !== 200) {
+            banner.innerHTML = '<div class="banner danger"><span>' + esc((res.body.error && res.body.error.message) || "صار خطأ") + '</span></div>';
+            return;
+          }
+          banner.innerHTML = '<div class="banner success"><span>✔ اتبدّلت المعرفة بنجاح (' + res.body.stats.charCount + ' حرف)</span></div>';
+        })
+        .finally(function () { setLoading(submitBtn, false); });
+    });
+  }
+
+  function wireChannelToggles() {
+    function push() {
+      var note = document.getElementById("channels-save-note");
+      note.classList.remove("show");
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/channels", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          botPaused: !document.getElementById("toggle-active").checked,
+          whatsappEnabled: document.getElementById("toggle-whatsapp").checked,
+          webEnabled: document.getElementById("toggle-web").checked,
+        }),
+      }).then(function (r) { if (r.status === 200) note.classList.add("show"); });
+    }
+    ["toggle-active", "toggle-whatsapp", "toggle-web"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener("change", push);
+    });
+  }
+
+  function wireAdvancedSettings() {
+    var btn = document.getElementById("settings-save-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var note = document.getElementById("settings-save-note");
+      note.classList.remove("show");
+      setLoading(btn, true);
+
+      var suggestions = document.getElementById("widget-suggestions").value
+        .split("\n").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 6);
+
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/settings", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voiceEnabled: document.getElementById("toggle-voice").checked,
+          salesMode: document.getElementById("toggle-sales-mode").checked,
+          businessHours: {
+            enabled: document.getElementById("toggle-hours").checked,
+            start: document.getElementById("hours-start").value,
+            end: document.getElementById("hours-end").value,
+          },
+          widget: {
+            accentColor: document.getElementById("widget-color").value,
+            title: document.getElementById("widget-title").value.trim(),
+            suggestions: suggestions,
+          },
+        }),
+      })
+        .then(function (r) { if (r.status === 200) note.classList.add("show"); })
+        .finally(function () { setLoading(btn, false); });
+    });
+  }
+
+  function wireIntegrations() {
+    var btn = document.getElementById("integrations-save-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var banner = document.getElementById("integrations-banner");
+      banner.innerHTML = "";
+      var telegramToken = document.getElementById("telegram-token").value.trim();
+      var discordToken = document.getElementById("discord-token").value.trim();
+      if (!telegramToken && !discordToken) return;
+
+      setLoading(btn, true);
+      var body = {};
+      if (telegramToken) body.telegramBotToken = telegramToken;
+      if (discordToken) body.discordBotToken = discordToken;
+
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/integrations", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (res) {
+          if (res.status !== 200) {
+            banner.innerHTML = '<div class="banner danger"><span>' + esc((res.body.error && res.body.error.message) || "صار خطأ") + '</span></div>';
+            return;
+          }
+          banner.innerHTML = '<div class="banner success"><span>✔ اتحفظت القنوات</span></div>';
+          document.getElementById("telegram-token").value = "";
+          document.getElementById("discord-token").value = "";
+        })
+        .finally(function () { setLoading(btn, false); });
+    });
+  }
+
+  function wireDisconnectWhatsapp() {
+    var btn = document.getElementById("disconnect-wa-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      if (!confirm("متأكد بدك تفصل رقم الواتساب؟ لازم تعيد ربطه من جديد لو بدك ترجّعه.")) return;
+      setLoading(btn, true);
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId) + "/api/disconnect-whatsapp", { method: "POST", credentials: "include" })
+        .then(function () { window.location.reload(); });
+    });
+  }
+
+  function wireDeleteBot() {
+    var deleteBtn = document.getElementById("delete-bot-btn");
+    if (!deleteBtn) return;
+
+    var passwordModal = document.getElementById("password-modal");
+    var nameModal = document.getElementById("confirm-name-modal");
+
+    deleteBtn.addEventListener("click", function () {
+      document.getElementById("password-modal-banner").innerHTML = "";
+      document.getElementById("delete-password-input").value = "";
+      passwordModal.classList.add("show");
+    });
+
+    document.getElementById("password-modal-cancel").addEventListener("click", function () {
+      passwordModal.classList.remove("show");
+    });
+
+    document.getElementById("password-modal-confirm").addEventListener("click", function () {
+      var btn = document.getElementById("password-modal-confirm");
+      var banner = document.getElementById("password-modal-banner");
+      var password = document.getElementById("delete-password-input").value;
+      banner.innerHTML = "";
+      if (!password) return;
+      setLoading(btn, true);
+
+      firebaseReady
+        .then(function () {
+          var user = firebase.auth().currentUser;
+          var cred = firebase.auth.EmailAuthProvider.credential(user.email, password);
+          return user.reauthenticateWithCredential(cred);
+        })
+        .then(function () {
+          passwordModal.classList.remove("show");
+          document.getElementById("confirm-name-target").textContent = state.displayName;
+          document.getElementById("confirm-name-input").value = "";
+          document.getElementById("confirm-name-submit").disabled = true;
+          nameModal.classList.add("show");
+        })
+        .catch(function () {
+          banner.innerHTML = '<div class="banner danger"><span>كلمة السر غلط</span></div>';
+        })
+        .finally(function () { setLoading(btn, false); });
+    });
+
+    document.getElementById("confirm-name-cancel").addEventListener("click", function () {
+      nameModal.classList.remove("show");
+    });
+
+    document.getElementById("confirm-name-input").addEventListener("input", function () {
+      document.getElementById("confirm-name-submit").disabled = this.value !== state.displayName;
+    });
+
+    document.getElementById("confirm-name-submit").addEventListener("click", function () {
+      var btn = this;
+      setLoading(btn, true);
+      fetch("/dashboard/bots/" + encodeURIComponent(clientId), {
+        method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmName: document.getElementById("confirm-name-input").value }),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+        .then(function (res) {
+          if (res.status !== 200) {
+            setLoading(btn, false);
+            alert((res.body.error && res.body.error.message) || "صار خطأ");
+            return;
+          }
+          window.location.href = "/dashboard";
+        });
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
