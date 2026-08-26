@@ -2,6 +2,7 @@ const config = require("../config");
 const whatsapp = require("./whatsapp");
 const conversation = require("./conversation");
 const { ESCALATE_MARKER } = require("./handoff-marker");
+const escalationLog = require("./escalationLog");
 
 // كلمات بتخلي البوت يوقف ويصعّد فورًا بدون حتى ما يسأل الذكاء الاصطناعي — بتوفر وقت وتكلفة،
 // وبتضمن التصعيد يصير حتى لو الرد الآلي غلط تقييم الموقف. عدّل القائمة حسب اللهجة/اللغة يلي متوقعها.
@@ -63,6 +64,7 @@ function checkKeywordEscalation(userText) {
 
 async function handleEscalation(client, { channel, endUserId, lastMessage }) {
   conversation.pauseForHandoff(client.id, endUserId, config.handoff.pauseHours * 60 * 60 * 1000);
+  escalationLog.record(client.id, { channel, endUserId, lastMessage });
   await notifyBusinessOwner(client, { channel, endUserId, lastMessage });
 }
 
@@ -79,6 +81,16 @@ function buildStillWaitingReply(client) {
   return `لسا بننتظر حدا من فريق ${client.displayName} يتواصل معك. لأي إستعجال: ${client.escalation.contactMethod} (${client.escalation.phone})`;
 }
 
+// رد محايد لأي عطل داخلي (خلص توكنز المزود، انقطاع، سقف...) — سياسة ثابتة:
+// الزبون بيوصله رسالة تحويل بس، بدون ذكر السبب التقني أبداً. نفس الصياغة مستخدمة
+// بdeepseek.js كاحتياط (نسخة متطابقة حتى ما في تبعية دائرية).
+function buildServiceIssueReply(client) {
+  return (
+    `عذرًا، ما قدرنا نكمل خدمتك بهاللحظة. تم تحويل طلبك لفريقنا وبتتواصل معك بأقرب وقت. ` +
+    `للتواصل الفوري: ${client.escalation.contactMethod} (${client.escalation.phone})`
+  );
+}
+
 module.exports = {
   ESCALATE_MARKER,
   extractEscalationMarker,
@@ -87,4 +99,5 @@ module.exports = {
   isConversationPaused,
   buildEscalationReply,
   buildStillWaitingReply,
+  buildServiceIssueReply,
 };

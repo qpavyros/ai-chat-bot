@@ -1,24 +1,36 @@
-// التسجيل الذاتي: شركة بدها بوت تسجّل حالها بأربع خطوات بدون أي تدخل من المشغّل.
-//   POST /signup             → تحقق أولي + إيميل تأكيد (رخيص، بدون أي معالجة ملفات/شبكة)
-//   GET  /signup/verify      → تأكيد الإيميل، بيحوّل لصفحة onboard.html حاملة signupToken
-//   POST /signup/knowledge   → رفع ملف أو رابط موقع → استخراج + فحص جودة + إنشاء عميل (preview)
-//   POST /signup/preview-chat → تجربة الشركة لبوتها قبل التفعيل (بس signupToken، مو مفتاح عام)
-//   POST /signup/activate    → تفعيل نهائي، بيرجّع كود الودجت الجاهز
+// تسجيل بوت جديد لحساب مسجّل دخول (راجع docs/site-restructure-plan.md قسم 4). الهوية هلق
+// جلسة حساب مستخدم (src/routes/userAuth.js)، مش رابط إيميل مؤقت — النسخة القديمة كانت تبلّش
+// بتحقق إيميل منفصل قبل ما يصير عندك حساب أصلاً؛ هلق الحساب موجود أول (Firebase Auth بيتحقق
+// ملكية الإيميل ضمنيًا عبر تسجيل الدخول فيه)، فمنبلّش مباشرة بتفاصيل الشركة.
+//
+//   POST /signup/start        → (requireUserAuth) ينشئ/يرجّع طلب تسجيل بوت قيد التنفيذ لهالحساب
+//   GET  /signup/status       → حالة الطلب الحالي (لصفحة onboard.html)
+//   POST /signup/knowledge    → رفع ملف أو رابط موقع → استخراج + فحص جودة + إنشاء عميل (preview)
+//   POST /signup/preview-chat → تجربة الشركة لبوتها قبل التفعيل
+//   POST /signup/connect-whatsapp → WhatsApp Embedded Signup
+//   POST /signup/activate     → تفعيل نهائي + ربط البوت بالحساب (userAccounts.attachBot)
 
 const express = require("express");
 const multer = require("multer");
+const axios = require("axios");
+const crypto = require("crypto");
 const config = require("../config");
 const registry = require("../clients/registry");
 const provisioning = require("../services/provisioning");
 const signups = require("../services/signups");
+const trialFraudGuard = require("../services/trialFraudGuard");
+const userAccounts = require("../services/userAccounts");
 const ingest = require("../services/ingest");
 const urlGuard = require("../services/urlGuard");
-const mailer = require("../services/mailer");
 const rateLimit = require("../services/rateLimit");
 const whatsapp = require("../services/whatsapp");
 const deepseek = require("../services/deepseek");
 const customers = require("../services/customers");
 const handoff = require("../services/handoff");
+const safeWrite = require("../services/safeWrite");
+const asyncHandler = require("../middleware/asyncHandler");
+const { validateClientConfig } = require("../services/clientConfigSchema");
+const { requireUserAuth } = require("./userAuth");
 
 const router = express.Router();
 
@@ -36,10 +48,6 @@ function requireSignupEnabled(req, res, next) {
 
 function clientIp(req) {
   return req.ip || req.socket?.remoteAddress || "unknown";
-}
-
-function isValidEmail(email) {
-  return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function isValidUrl(url) {
@@ -63,15 +71,23 @@ function detectUploadType(buffer, originalName) {
 
 router.use(requireSignupEnabled);
 
-// ===== 1) POST /signup =====
-router.post("/signup", async (req, res) => {
-  const { companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, acceptedTerms } = req.body || {};
+// App ID وConfiguration ID مش سريين (App Secret هو السري، ما بيطلع من هون أبدًا) — الصفحة
+// العامة (onboard.html) محتاجتهم لتشغيل Facebook JS SDK.
+router.get("/signup/embedded-signup-config", (req, res) => {
+  res.json({
+    enabled: Boolean(config.meta.appId && config.meta.appSecret && config.meta.configId),
+    appId: config.meta.appId || null,
+    configId: config.meta.configId || null,
+    graphVersion: config.whatsapp.graphVersion,
+  });
+});
+
+// ===== POST /signup/start — يحتاج تسجيل دخول حساب أول =====
+router.post("/signup/start", requireUserAuth, asyncHandler(async (req, res) => {
+  const { companyName, notifyWhatsapp, escalationPhone, websiteUrl, acceptedTerms } = req.body || {};
 
   if (!companyName || String(companyName).trim().length < 2 || String(companyName).length > 100) {
     return res.status(400).json({ error: { code: "invalid_company_name", message: "اسم الشركة مطلوب (2-100 حرف)" } });
-  }
-  if (!isValidEmail(contactEmail)) {
-    return res.status(400).json({ error: { code: "invalid_email", message: "إيميل غير صحيح" } });
   }
   if (!notifyWhatsapp || String(notifyWhatsapp).trim().length < 6) {
     return res.status(400).json({ error: { code: "invalid_notify_whatsapp", message: "رقم واتساب لتنبيهك مطلوب" } });
@@ -89,83 +105,79 @@ router.post("/signup", async (req, res) => {
   const ip = clientIp(req);
   const ipHour = rateLimit.checkLimit(`signup-ip-hr:${ip}`, { max: 3, windowMs: 60 * 60 * 1000 });
   const ipDay = rateLimit.checkLimit(`signup-ip-day:${ip}`, { max: 10, windowMs: 24 * 60 * 60 * 1000 });
-  const globalDay = rateLimit.checkLimit("signup-global-day", { max: 20, windowMs: 24 * 60 * 60 * 1000 });
-
-  if (!ipHour.allowed || !ipDay.allowed || !globalDay.allowed) {
+  if (!ipHour.allowed || !ipDay.allowed) {
     return res.status(429).json({ error: { code: "rate_limited", message: "عدد تسجيلات كتير — جرب بعد شوي" } });
   }
 
-  if (registry.getClientByContactEmail(contactEmail) || signups.hasActivePendingForEmail(contactEmail)) {
-    return res.status(409).json({ error: { code: "email_already_used", message: "هالإيميل عنده تسجيل شغال أصلاً" } });
+  // منع نفس الشخص من فتح أكتر من حساب تجريبي واحد (بحساب Firebase مختلف) عبر إعادة استخدام
+  // نفس رقم واتساب/رقم تصعيد/دومين موقع، أو تسجيلات كتيرة من نفس الشبكة. راجع trialFraudGuard.js.
+  const fraudCheck = await trialFraudGuard.reserveSignupFingerprints(req.uid, {
+    notifyWhatsapp,
+    escalationPhone,
+    websiteUrl,
+    ip,
+  });
+  if (fraudCheck.blocked) {
+    return res.status(409).json({ error: { code: "trial_already_used", message: trialFraudGuard.messageForReason(fraudCheck.reason) } });
   }
 
-  const { pendingId, verifyToken } = signups.createPending({
+  const profile = await userAccounts.getProfile(req.uid);
+  const pending = await signups.createPending(req.uid, {
     companyName: String(companyName).trim(),
-    contactEmail: String(contactEmail).trim(),
+    contactEmail: profile.email,
     notifyWhatsapp: String(notifyWhatsapp).trim(),
     escalationPhone: String(escalationPhone).trim(),
     websiteUrl: String(websiteUrl).trim(),
   });
 
-  const verifyUrl = `${config.provisioning.publicBaseUrl}/api/v1/signup/verify?pendingId=${pendingId}&token=${verifyToken}`;
-  await mailer.sendVerificationEmail(contactEmail, verifyUrl);
+  await userAccounts.setOnboardingState(req.uid, { pendingId: pending.pendingId, currentStep: "knowledge" });
 
-  res.json({ pendingId, status: "pending_email_verification" });
-});
+  res.json({ pendingId: pending.pendingId });
+}));
 
-// ===== 2) GET /signup/verify =====
-router.get("/signup/verify", (req, res) => {
-  const { pendingId, token } = req.query;
-  if (!pendingId || !token) {
-    return res.status(400).json({ error: { code: "missing_params", message: "pendingId وtoken مطلوبين" } });
-  }
-
-  try {
-    const { signupToken } = signups.verifyEmail(String(pendingId), String(token));
-    res.redirect(`/public/onboard.html?token=${encodeURIComponent(signupToken)}`);
-  } catch (err) {
-    // ما في صفحة خطأ مخصصة بهالمرحلة — رسالة JSON واضحة كافية (رابط منتهي/مُستخدم مسبقًا)
-    res.status(400).json({ error: { code: "verification_failed", message: err.message } });
-  }
-});
-
-function requireSignupToken(req, res, next) {
-  const authHeader = req.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  if (!token) {
-    return res.status(401).json({ error: { code: "missing_signup_token", message: "Authorization: Bearer <signupToken> مطلوب" } });
-  }
-
-  const pending = signups.getPendingBySignupToken(token);
-  if (!pending) {
-    return res.status(401).json({ error: { code: "invalid_signup_token", message: "signupToken غير صحيح أو منتهي" } });
-  }
-
-  req.pending = pending;
-  next();
+// كل الراوتات تحت هون بتحتاج pendingId (query لـGET، body لـPOST) + ملكية: نفس الحساب
+// يلي أنشأ الطلب. allowCompleted بيسمح بمتابعة العمل بعد "بوتك جاهز 🎉" (ربط واتساب، تحميل
+// الصفحة تاني) — العمليات الحسّاسة (رفع/استبدال معرفة، إعادة تفعيل) بتبقى محصورة بـallowCompleted=false.
+function requireOwnedPending({ allowCompleted = false } = {}) {
+  return [
+    requireUserAuth,
+    asyncHandler(async (req, res, next) => {
+      // pendingId بالـquery string بس (مش body) عمدًا — /signup/knowledge بيستخدم multipart
+      // (upload.single يفكّك الـbody بعد ما هالميدلوير يشتغل)، فلازم مصدر واحد ثابت لكل الراوتات.
+      const pendingId = req.query.pendingId;
+      if (!pendingId) {
+        return res.status(400).json({ error: { code: "missing_pending_id", message: "pendingId مطلوب" } });
+      }
+      const pending = await signups.getPending(String(pendingId));
+      if (!pending || pending.ownerUid !== req.uid) {
+        return res.status(404).json({ error: { code: "pending_not_found", message: "طلب تسجيل غير موجود" } });
+      }
+      if (pending.status === "completed" && !allowCompleted) {
+        return res.status(409).json({ error: { code: "already_completed", message: "هالطلب اتفعّل أصلاً" } });
+      }
+      req.pending = pending;
+      next();
+    }),
+  ];
 }
 
-// حالة الطلب الحالية — تخلي صفحة onboard.html تعرض رابط الموقع الصحيح وتتعامل صح مع
-// إعادة تحميل الصفحة نص الطريق (لو خلص رفع المعرفة، تعرض المعاينة مباشرة بدل ما تطلب رفع تاني).
-// ⚠️ بعد التفعيل الكامل، signupToken يصير "منتهي" عمدًا (راجع getPendingBySignupToken) —
-// فهالـ endpoint بيرجع 401 بعدها، وهاد مقصود (توكن مكتمل ما لازم يضل صالح). الصفحة بتحتفظ
-// بكود الودجت بالذاكرة (JS) مباشرة بعد التفعيل، مو عبر إعادة استعلام لاحقة.
-router.get("/signup/status", requireSignupToken, (req, res) => {
+router.get("/signup/status", requireOwnedPending({ allowCompleted: true }), (req, res) => {
   const p = req.pending;
   res.json({
     companyName: p.companyName,
     websiteUrl: p.websiteUrl,
     clientId: p.clientId,
     publicKey: p.publicKey,
+    completed: p.status === "completed",
     knowledgeAttemptsRemaining: signups.MAX_KNOWLEDGE_ATTEMPTS - p.knowledgeAttempts,
   });
 });
 
-// ===== 3) POST /signup/knowledge =====
-router.post("/signup/knowledge", requireSignupToken, upload.single("file"), async (req, res) => {
+// ===== POST /signup/knowledge =====
+router.post("/signup/knowledge", ...requireOwnedPending(), upload.single("file"), asyncHandler(async (req, res) => {
   const pending = req.pending;
 
-  const attempts = signups.incrementKnowledgeAttempts(pending.pendingId);
+  const attempts = await signups.incrementKnowledgeAttempts(pending.pendingId);
   if (attempts > signups.MAX_KNOWLEDGE_ATTEMPTS) {
     return res.status(429).json({ error: { code: "too_many_attempts", message: "تجاوزت الحد المسموح لمحاولات رفع المعرفة" } });
   }
@@ -207,7 +219,7 @@ router.post("/signup/knowledge", requireSignupToken, upload.single("file"), asyn
   let publicKey;
 
   if (pending.clientId) {
-    provisioning.replaceKnowledge(pending.clientId, content, knowledgeFileName);
+    await provisioning.replaceKnowledge(pending.clientId, content, knowledgeFileName);
     clientId = pending.clientId;
     publicKey = pending.publicKey;
   } else {
@@ -223,7 +235,7 @@ router.post("/signup/knowledge", requireSignupToken, upload.single("file"), asyn
     });
     clientId = result.clientId;
     publicKey = result.publicKey;
-    signups.attachClient(pending.pendingId, clientId, publicKey);
+    await signups.attachClient(pending.pendingId, clientId, publicKey);
   }
 
   res.json({
@@ -233,11 +245,11 @@ router.post("/signup/knowledge", requireSignupToken, upload.single("file"), asyn
     previewExcerpt: content.slice(0, 2000),
     attemptsRemaining: signups.MAX_KNOWLEDGE_ATTEMPTS - attempts,
   });
-});
+}));
 
-// ===== تجربة البوت قبل التفعيل — بـ signupToken بس، مش pk_/sk_ (العميل لسا preview) =====
-// سقف رسائل خفيف دفاعًا إضافيًا (جنب TTL التوكن نفسه 24 ساعة) حتى ما يصير مسار لاستهلاك DeepSeek بلا حدود.
-router.post("/signup/preview-chat", requireSignupToken, async (req, res) => {
+// ===== تجربة البوت قبل التفعيل =====
+// سقف رسائل خفيف دفاعًا إضافيًا حتى ما يصير مسار لاستهلاك DeepSeek بلا حدود.
+router.post("/signup/preview-chat", ...requireOwnedPending(), asyncHandler(async (req, res) => {
   const pending = req.pending;
 
   if (!pending.clientId) {
@@ -272,18 +284,75 @@ router.post("/signup/preview-chat", requireSignupToken, async (req, res) => {
     console.error("[signup] فشل معاينة الشات:", err.response?.data || err.message);
     res.status(500).json({ error: { code: "preview_chat_failed", message: "صار خطأ بمعاينة الشات، جرب كمان شوي" } });
   }
-});
+}));
 
-// ===== 4) POST /signup/activate =====
-router.post("/signup/activate", requireSignupToken, (req, res) => {
+// ===== POST /signup/connect-whatsapp — WhatsApp Embedded Signup =====
+router.post("/signup/connect-whatsapp", ...requireOwnedPending({ allowCompleted: true }), asyncHandler(async (req, res) => {
+  const pending = req.pending;
+  const { code, phoneNumberId, wabaId } = req.body || {};
+
+  if (!pending.clientId) {
+    return res.status(400).json({ error: { code: "no_knowledge_yet", message: "لازم ترفع معرفة عبر /signup/knowledge أول" } });
+  }
+  if (!code || !phoneNumberId) {
+    return res.status(400).json({ error: { code: "missing_fields", message: "code وphoneNumberId مطلوبين" } });
+  }
+  if (!config.meta.appId || !config.meta.appSecret) {
+    return res.status(503).json({ error: { code: "embedded_signup_not_configured", message: "ربط واتساب التلقائي مش مفعّل حالياً — تواصل معنا" } });
+  }
+
+  if (wabaId) {
+    const wabaFraudCheck = await trialFraudGuard.reserveWabaFingerprint(req.uid, wabaId);
+    if (wabaFraudCheck.blocked) {
+      return res.status(409).json({ error: { code: "trial_already_used", message: trialFraudGuard.messageForReason(wabaFraudCheck.reason) } });
+    }
+  }
+
+  try {
+    await axios.get(`https://graph.facebook.com/${config.whatsapp.graphVersion}/oauth/access_token`, {
+      params: { client_id: config.meta.appId, client_secret: config.meta.appSecret, code },
+      timeout: 15_000,
+    });
+
+    const pin = String(crypto.randomInt(100000, 999999));
+    await axios.post(
+      `https://graph.facebook.com/${config.whatsapp.graphVersion}/${phoneNumberId}/register`,
+      { messaging_product: "whatsapp", pin },
+      { headers: { Authorization: `Bearer ${config.whatsapp.token}` }, timeout: 15_000 }
+    );
+
+    const existing = registry.getClientById(pending.clientId);
+    if (!existing) return res.status(404).json({ error: { code: "client_not_found", message: "عميل غير موجود" } });
+
+    const { knowledge, ...configOnly } = existing;
+    const updated = {
+      ...configOnly,
+      whatsappPhoneNumberId: phoneNumberId,
+      whatsappBusinessAccountId: wabaId || null,
+      whatsappRegistrationPin: pin,
+    };
+
+    await safeWrite.safeWriteJSON(pending.clientId, "config.json", updated, { validate: validateClientConfig });
+
+    res.json({ ok: true, phoneNumberId });
+  } catch (err) {
+    console.error("[signup] فشل ربط واتساب:", err.response?.data || err.message);
+    res.status(500).json({ error: { code: "whatsapp_connect_failed", message: "فشل ربط واتساب — تأكد من الصلاحيات وحاول كمان مرة" } });
+  }
+}));
+
+// ===== POST /signup/activate — تفعيل نهائي + ربط البوت بالحساب =====
+router.post("/signup/activate", ...requireOwnedPending(), asyncHandler(async (req, res) => {
   const pending = req.pending;
 
   if (!pending.clientId) {
     return res.status(400).json({ error: { code: "no_knowledge_yet", message: "لازم ترفع معرفة عبر /signup/knowledge أول" } });
   }
 
-  provisioning.activateClient(pending.clientId);
-  signups.markCompleted(pending.pendingId);
+  await provisioning.activateClient(pending.clientId);
+  await signups.markCompleted(pending.pendingId);
+  await userAccounts.attachBot(req.uid, pending.clientId);
+  await userAccounts.clearOnboardingState(req.uid);
 
   const widgetSnippet =
     `<script src="${config.provisioning.publicBaseUrl}/widget/chat-widget.js"\n` +
@@ -306,8 +375,7 @@ router.post("/signup/activate", requireSignupToken, (req, res) => {
     clientId: pending.clientId,
     publicKey: pending.publicKey,
     widgetSnippet,
-    docsUrl: `${config.provisioning.publicBaseUrl}/docs`,
   });
-});
+}));
 
 module.exports = router;

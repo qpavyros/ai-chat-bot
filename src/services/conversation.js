@@ -17,8 +17,4 @@ function isPaused(clientId, userId) {
   return typeof until === "number" && until > Date.now();
 }
 
-function resume(clientId, userId) {
-  pausedUntil.delete(key(clientId, userId));
-}
-
-module.exports = { pauseForHandoff, isPaused, resume };
+module.exports = { pauseForHandoff, isPaused };

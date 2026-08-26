@@ -1,8 +1,11 @@
 // نظام حجز مواعيد بسيط، مخزّن بملف JSON لكل عميل — بدون قاعدة بيانات قصدًا (راجع README).
 // كل عميل معرّف "appointments" بـ config.json فيه:
 //   workingHours: { start: "09:00", end: "17:00" }
+//     أو ساعات لكل يوم منفصلة:
+//   workingHours: { byDay: { "0": {start,end}, "2": {start:"10:00", end:"19:00"}, "5": {closed:true} } }
+//     (مفاتيح byDay أرقام أيام JS Date.getDay(): 0=أحد .. 6=سبت؛ اليوم بدون مدخل أو closed=true = مغلق)
 //   slotMinutes: 30
-//   offDays: [5]   // 0=أحد .. 6=سبت (JS Date.getDay())، مثلاً 5 = جمعة
+//   offDays: [5]   // 0=أحد .. 6=سبت، بتطبق فوق byDay كمان
 //
 // الحجز (bookAppointment) بيصير كامل جوا safeWrite.withClientLock — فحص التوفر والكتابة
 // بنفس القفل، حتى ما يصير حجز مزدوج لو زبونين طلبوا نفس الخانة بنفس اللحظة (كان ثغرة حقيقية:
@@ -10,6 +13,7 @@
 
 const safeWrite = require("./safeWrite");
 const { todayInBeirut, nowInBeirut } = require("./date-utils");
+const { hoursForDate } = require("./businessHours");
 
 function readAppointments(clientId) {
   const file = require("path").join(safeWrite.dataDir(clientId), "appointments.json");
@@ -34,10 +38,16 @@ function dayOfWeek(dateStr) {
   return new Date(`${dateStr}T12:00:00Z`).getUTCDay();
 }
 
-function generateSlots(client) {
-  const { workingHours, slotMinutes } = client.appointments;
-  const start = minutesSinceMidnight(workingHours.start);
-  const end = minutesSinceMidnight(workingHours.end);
+// ساعات يوم معيّن صارت بالخدمة المشتركة businessHours.js — نفس الصيغتين (عام أو byDay)
+function generateSlots(client, dateStr) {
+  const { slotMinutes } = client.appointments;
+  const hours = hoursForDate(client.appointments.workingHours, dateStr);
+  if (!hours) return [];
+
+  const start = minutesSinceMidnight(hours.start);
+  const end = minutesSinceMidnight(hours.end);
+  if (end <= start) return [];
+
   const slots = [];
   for (let t = start; t + slotMinutes <= end; t += slotMinutes) {
     const h = String(Math.floor(t / 60)).padStart(2, "0");
@@ -50,11 +60,13 @@ function generateSlots(client) {
 // منطق القراءة الفعلي — بدون قفل، يُستخدم من getFreeSlots (قراءة عابرة، ما بتحتاج قفل)
 // ومن bookAppointment (لازم يصير جوا القفل، فبيستدعي هاد مباشرة مش getFreeSlots).
 function computeFreeSlots(client, dateStr) {
-  const offDays = client.appointments.offDays || [];
+  const apptConfig = client.appointments;
+  const offDays = apptConfig.offDays || [];
   if (offDays.includes(dayOfWeek(dateStr))) return [];
   if (dateStr < todayInBeirut()) return [];
+  if (!hoursForDate(apptConfig.workingHours, dateStr)) return []; // يوم مغلق بـbyDay
 
-  let allSlots = generateSlots(client);
+  let allSlots = generateSlots(client, dateStr);
 
   // اليوم نفسه: خانات الوقت يلي مضت ما لازم تظهر متاحة — كانت ثغرة حقيقية (بوت عيادة كان
   // يعرض موعد الساعة ٩ الصبح وقت العصر). هامش ساعة قبل أي خانة حتى ما نعرض حجز بعد ٥ دقايق.

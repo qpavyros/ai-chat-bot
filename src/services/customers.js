@@ -9,12 +9,20 @@
 const path = require("path");
 const safeWrite = require("./safeWrite");
 const { safeId } = require("./safe-id");
+const jsonlLog = require("./jsonlLog");
 
 const MAX_TURNS = 8; // عدد الرسائل (مستخدم+بوت) المحفوظة بالسياق، لضبط تكلفة كل رد
 const MAX_FACTS = 20; // حد أقصى للتفضيلات المحفوظة عن الزبون، حتى ما ينتفخ الـ system prompt بلا حدود
 
 function profileRelativePath(userId) {
   return path.join("customers", `${safeId(userId)}.json`);
+}
+
+// النسخة الكاملة الدائمة للمحادثة — السياق المرسل للنموذج مقصوص بـMAX_TURNES عمدًا، بس
+// صاحب العمل بحاجة يشوف/يصدّر كل شي قيل. jsonl سطر لكل تبادل (سؤال+جواب)، بسقف حجم
+// سخي حتى ما ينفجر القرص (2000 تبادل أخير لكل زبون).
+function transcriptPath(clientId, userId) {
+  return path.join(safeWrite.dataDir(clientId), "transcripts", `${safeId(userId)}.jsonl`);
 }
 
 function profileAbsolutePath(clientId, userId) {
@@ -45,7 +53,18 @@ function saveTurn(clientId, userId, userMessage, botReply) {
     profile.lastMessage = userMessage;
     profile.lastMessageAt = new Date().toISOString();
     safeWrite.rawWriteDataFile(clientId, profileRelativePath(userId), JSON.stringify(profile, null, 2));
+
+    // النسخة الكاملة الدائمة — داخل نفس القفل حتى ما ينقلب ترتيب الأسطر بمحادثات متزامنة
+    jsonlLog.appendCapped(
+      transcriptPath(clientId, userId),
+      { at: profile.lastMessageAt, user: userMessage, bot: botReply },
+      { maxBytes: 512 * 1024, keepLast: 2000 }
+    );
   });
+}
+
+function readTranscript(clientId, userId, limit = 500) {
+  return jsonlLog.readRecent(transcriptPath(clientId, userId), limit);
 }
 
 function addFact(clientId, userId, factText) {
@@ -77,4 +96,4 @@ function formatProfileForPrompt(profile) {
   return lines.join("\n");
 }
 
-module.exports = { getProfile, saveTurn, addFact, formatProfileForPrompt };
+module.exports = { getProfile, saveTurn, addFact, formatProfileForPrompt, readTranscript, transcriptPath };

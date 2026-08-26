@@ -1,16 +1,38 @@
 const express = require("express");
 const config = require("../config");
-const deepseek = require("../services/deepseek");
-const customers = require("../services/customers");
-const handoff = require("../services/handoff");
 const rateLimit = require("../services/rateLimit");
-const replyCache = require("../services/replyCache");
+const registry = require("../clients/registry");
+const handoff = require("../services/handoff");
+const messageGate = require("../services/messageGate");
+const conversationEngine = require("../services/conversationEngine");
 const { authenticate } = require("../middleware/auth");
 
 const router = express.Router();
 
+// إعدادات تخصيص الودجت (لون/عنوان/أسئلة مقترحة) — بيانات عامة عمدًا (براندينغ ظاهر أصلاً
+// لكل زائر)، محمية بسقف طلبات حتى ما تصير مصدر ضغط. عميل غير موجود = قيم فاضية والودجت
+// بيضل شغال بإعدادات الوسوم المضمّنة.
+router.get("/widget-config/:clientId", (req, res) => {
+  const ip = req.ip || "unknown";
+  if (!rateLimit.checkLimit(`widget-cfg:${ip}`, { max: 240, windowMs: 60 * 60 * 1000 }).allowed) {
+    return res.status(429).json({ error: { code: "rate_limited" } });
+  }
+
+  const client = registry.getClientById(String(req.params.clientId || ""));
+  const w = client?.widget || {};
+  res.json({
+    accentColor: typeof w.accentColor === "string" && /^#[0-9a-fA-F]{3,8}$/.test(w.accentColor) ? w.accentColor : null,
+    title: typeof w.title === "string" && w.title.trim() ? w.title.trim().slice(0, 60) : null,
+    suggestions: Array.isArray(w.suggestions)
+      ? w.suggestions.filter((s) => typeof s === "string" && s.trim()).map((s) => s.trim().slice(0, 120)).slice(0, 6)
+      : [],
+  });
+});
+
 // ودجت الموقع بتستدعي هالـ endpoint. sessionId يجيء من الودجت (مولّد بالمتصفح ومحفوظ بـ localStorage).
 // المصادقة (pk_/sk_/الوضع القديم) بتصير بـ authenticate middleware — بترتب req.client جاهز هون.
+//
+// الحواجز الثابتة وشكل أخطاء السقوف HTTP هون، ووسط المعالجة المشترك بconversationEngine.
 router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), async (req, res) => {
   try {
     const client = req.client;
@@ -20,76 +42,103 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
       return res.status(400).json({ error: { code: "missing_fields", message: "message و sessionId مطلوبين" } });
     }
 
-    // سقف رسائل خلال الفترة التجريبية — يحدّ كلفة أي بوت مهجور/معطّل تلقائيًا من عملاء
-    // التسجيل الذاتي. عملاء يدويين (plan غير "trial") ما بينطبق عليهم هالسقف.
-    if (client.plan === "trial") {
-      const trialUsage = rateLimit.checkLimit(`trial-msgs:${client.id}`, {
-        max: config.provisioning.trialMessageCap,
-        windowMs: config.provisioning.trialDays * 24 * 60 * 60 * 1000,
-      });
-      if (!trialUsage.allowed) {
-        return res.status(403).json({ error: { code: "trial_limit_reached", message: "وصلت لسقف رسائل الفترة التجريبية" } });
+    // حواجز ثابتة (موقوف/قناة/باقة) — على كل رسالة
+    const gate = messageGate.evaluateStatic(client, "web");
+    if (!gate.allowed) {
+      switch (gate.reason) {
+        case "bot_paused":
+          return res.json({
+            reply: `عذرًا، ${client.displayName} متوقف مؤقتًا عن الرد الآلي حاليًا. للتواصل المباشر: ${client.escalation.contactMethod} (${client.escalation.phone})`,
+          });
+        case "channel_off":
+          return res.json({
+            reply: `عذرًا، ${client.displayName} أوقف الرد الآلي عبر الموقع مؤقتًا. للتواصل المباشر: ${client.escalation.contactMethod} (${client.escalation.phone})`,
+          });
+        case "widget_not_included":
+          return res.status(403).json({
+            error: { code: "widget_not_included", message: "ودجت الموقع مش متوفر بباقتك الحالية — تواصل معنا للترقية" },
+          });
       }
     }
 
-    // سقف عام لكل الخطط (مش بس trial) — يحمي من إساءة استخدام حقيقية (loop عالـendpoint،
-    // مفتاح pk_ مسروق من كود الصفحة) بغض النظر عن نوع العميل. حدّين: لكل جلسة (ساعة)، ولكل عميل (يوم).
-    const sessionUsage = rateLimit.checkLimit(`session-msgs:${client.id}:${sessionId}`, {
-      max: config.abuseGuard.sessionHourlyMax,
-      windowMs: 60 * 60 * 1000,
+    // ===== مسار streaming (SSE) — للودجت بس، لما العميل يطلبه =====
+    // المحرك بينده getReplyStream داخليًا لما نمرر onDelta، وأي فشل بالبث بيصير
+    // رسالة اعتذار بنفس الستريم بدون مسار موازٍ.
+    const wantsStream =
+      config.streaming?.enabled !== false &&
+      (req.headers.accept || "").includes("text/event-stream");
+    if (wantsStream) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no", // nginx ما يخزّن الرد — الدلتا توصل لحالها
+      });
+
+      const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+      try {
+        const result = await conversationEngine.handleInbound({
+          client,
+          channel: "web",
+          endUserId: sessionId,
+          userText: message,
+          onDelta: (delta) => send({ type: "delta", text: delta }),
+        });
+
+        if (result.kind === "blocked") {
+          // السقوف انفحصت بعد ما بلشنا البث نظريًا مستحيل (انفحصت قبل deepseek)، بس للأمان
+          send({ type: "done", reply: `وصلنا لحد رسائل الفترة الحالية (${result.reason}). تواصل معنا للمساعدة.` });
+        } else {
+          // الرد النهائي النظيف (بعد شيل ماركر التصعيد) — الودجت بيعتمده كنص نهائي
+          send({ type: "done", reply: result.reply });
+        }
+        res.end();
+      } catch (err) {
+        console.error("web chat stream error:", err.response?.data || err.message);
+        // سياسة موحدة: رسالة تحويل محايدة بدون أي تفاصيل تقنية
+        send({ type: "done", reply: handoff.buildServiceIssueReply(client) });
+        res.end();
+      }
+      return;
+    }
+
+    // المسار العادي غير المتدفق
+    const result = await conversationEngine.handleInbound({
+      client,
+      channel: "web",
+      endUserId: sessionId,
+      userText: message,
     });
-    if (!sessionUsage.allowed) {
-      return res.status(429).json({ error: { code: "rate_limited", message: "رسائل كتير بوقت قصير — جرب بعد شوي" } });
-    }
-    const clientDailyUsage = rateLimit.checkLimit(`client-daily-msgs:${client.id}`, {
-      max: config.abuseGuard.clientDailyMax,
-      windowMs: 24 * 60 * 60 * 1000,
-    });
-    if (!clientDailyUsage.allowed) {
-      return res.status(429).json({ error: { code: "rate_limited", message: "وصلنا لسقف الرسائل اليومي — جرب بكرا" } });
-    }
 
-    if (handoff.isConversationPaused(client.id, sessionId)) {
-      return res.json({ reply: handoff.buildStillWaitingReply(client) });
-    }
-
-    if (handoff.checkKeywordEscalation(message)) {
-      const reply = handoff.buildEscalationReply(client);
-      await customers.saveTurn(client.id, sessionId, message, reply);
-      await handoff.handleEscalation(client, { channel: "web", endUserId: sessionId, lastMessage: message });
-      return res.json({ reply });
-    }
-
-    const profile = customers.getProfile(client.id, sessionId);
-    // "زبون أول-تواصل" بس — بدون تاريخ محادثة ولا معلومات محفوظة عنه. هاد الشرط الوحيد
-    // اللي بيضمن رد الكاش ما محتوى شخصي/سياقي مرتبط بمحادثة سابقة (راجع replyCache.js).
-    const cacheable = profile.history.length === 0 && profile.facts.length === 0;
-
-    const cachedReply = cacheable ? replyCache.get(client.id, message) : null;
-    if (cachedReply) {
-      await customers.saveTurn(client.id, sessionId, message, cachedReply);
-      return res.json({ reply: cachedReply });
+    if (result.kind === "blocked") {
+      switch (result.reason) {
+        case "trial_cap":
+          return res.status(403).json({ error: { code: "trial_limit_reached", message: "وصلت لسقف رسائل الفترة التجريبية" } });
+        case "session_cap":
+        case "daily_cap":
+          return res.status(429).json({
+            error: {
+              code: "rate_limited",
+              message:
+                result.reason === "session_cap"
+                  ? "رسائل كتير بوقت قصير — جرب بعد شوي"
+                  : "وصلنا لسقف الرسائل اليومي — جرب بكرا",
+            },
+          });
+        case "monthly_cap":
+          return res.status(429).json({
+            error: { code: "tier_limit_reached", message: "وصلت لسقف رسائل باقتك الشهري — تواصل معنا للترقية" },
+          });
+      }
     }
 
-    const { text: rawReply, toolsUsed } = await deepseek.getReply(client, profile, message);
-    const { escalated, cleanText } = handoff.extractEscalationMarker(rawReply);
-
-    await customers.saveTurn(client.id, sessionId, message, cleanText);
-
-    // ما نخزّن إلا رد "نظيف": زبون أول-تواصل + بدون استخدام أداة (حجز/فحص توفر/تذكّر معلومة) +
-    // بدون تصعيد — أي واحدة من هالثلاثة بتعني الرد مرتبط بلحظة/زبون معيّن، مو جواب FAQ عام.
-    if (cacheable && !toolsUsed && !escalated) {
-      replyCache.set(client.id, message, cleanText);
-    }
-
-    if (escalated) {
-      await handoff.handleEscalation(client, { channel: "web", endUserId: sessionId, lastMessage: message });
-    }
-
-    res.json({ reply: cleanText });
+    res.json({ reply: result.reply });
   } catch (err) {
     console.error("web chat error:", err.response?.data || err.message);
-    res.status(500).json({ error: { code: "internal_error", message: "صار خطأ، جرب كمان شوي" } });
+    res.status(500).json({
+      error: { code: "internal_error", message: handoff.buildServiceIssueReply(client) },
+    });
   }
 });
 

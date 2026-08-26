@@ -6,6 +6,7 @@ const path = require("path");
 const crypto = require("crypto");
 const config = require("../config");
 const apiKeys = require("./apiKeys");
+const safeWrite = require("./safeWrite");
 
 const CLIENTS_DIR = path.join(__dirname, "..", "clients");
 
@@ -124,38 +125,44 @@ function createClient({ companyName, contactEmail, notifyWhatsapp, escalationPho
 
 // شركة عم تحاول تستورد ملف تاني بعد فشل/عدم رضا عن المحاولة الأولى (لسا preview، ما انفعّل بعد).
 // بنشيل أي source-*.md قديم ونكتب الجديد — ما منعمل عميل جديد (كان صار عندها clientId أصلاً).
-function replaceKnowledge(clientId, knowledgeContent, knowledgeFileName) {
-  const clientDir = path.join(CLIENTS_DIR, clientId);
-  if (!fs.existsSync(path.join(clientDir, "config.json"))) {
-    throw new Error(`عميل غير موجود: ${clientId}`);
-  }
-
-  for (const file of fs.readdirSync(clientDir)) {
-    if (file.startsWith("source-") && file.endsWith(".md")) {
-      fs.unlinkSync(path.join(clientDir, file));
+// دورة الحذف+الكتابة كاملة جوا قفل العميل حتى ما تقرأ registry نص-معرفة مختلط بنص المعالجة.
+async function replaceKnowledge(clientId, knowledgeContent, knowledgeFileName) {
+  await safeWrite.withClientLock(clientId, () => {
+    const clientDir = safeWrite.clientDir(clientId);
+    if (!fs.existsSync(path.join(clientDir, "config.json"))) {
+      throw new Error(`عميل غير موجود: ${clientId}`);
     }
-  }
 
-  fs.writeFileSync(path.join(clientDir, knowledgeFileName || "source-website.md"), knowledgeContent, "utf8");
+    for (const file of fs.readdirSync(clientDir)) {
+      if (file.startsWith("source-") && file.endsWith(".md")) {
+        fs.unlinkSync(path.join(clientDir, file));
+      }
+    }
+
+    safeWrite.rawWriteClientFile(clientId, knowledgeFileName || "source-website.md", knowledgeContent);
+  });
 }
 
 // preview → active. الفترة التجريبية تنطلق من هلق (لا من لحظة الإنشاء) — الشركة ممكن تاخد
 // وقتها تراجع المعاينة قبل ما تفعّل، وما لازم هالوقت يقتطع من فترتها التجريبية الفعلية.
-function activateClient(clientId) {
-  const clientDir = path.join(CLIENTS_DIR, clientId);
-  const configPath = path.join(clientDir, "config.json");
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`عميل غير موجود: ${clientId}`);
-  }
+// قراءة-تعديل-كتابة config.json جوا القفل — بدون هيك ممكن تطغى على تعديل أدمن متزامن.
+async function activateClient(clientId) {
+  await safeWrite.withClientLock(clientId, () => {
+    const clientDir = safeWrite.clientDir(clientId);
+    const configPath = path.join(clientDir, "config.json");
+    if (!fs.existsSync(configPath)) {
+      throw new Error(`عميل غير موجود: ${clientId}`);
+    }
 
-  const clientConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  clientConfig.status = "active";
-  clientConfig.trialExpiresAt = new Date(
-    Date.now() + config.provisioning.trialDays * 24 * 60 * 60 * 1000
-  ).toISOString();
+    const clientConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    clientConfig.status = "active";
+    clientConfig.trialExpiresAt = new Date(
+      Date.now() + config.provisioning.trialDays * 24 * 60 * 60 * 1000
+    ).toISOString();
 
-  fs.writeFileSync(configPath, JSON.stringify(clientConfig, null, 2), "utf8");
-  return clientConfig;
+    safeWrite.rawWriteClientFile(clientId, "config.json", JSON.stringify(clientConfig, null, 2));
+    return clientConfig;
+  });
 }
 
 module.exports = {
