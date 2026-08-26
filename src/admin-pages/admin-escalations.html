@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>صندوق التصعيدات — لوحة المشغّل</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
+<style>
+  body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 20px; direction: ltr; }
+</style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+
+<header class="flex flex-row-reverse justify-between items-center w-full px-6 md:px-10 h-16 max-w-[1400px] mx-auto bg-surface border-b border-outline-variant sticky top-0 z-50">
+  <div class="font-headline-md text-headline-md font-bold text-primary shrink-0">ساعدني AI — أدمن</div>
+  <nav class="flex flex-row-reverse gap-8 flex-1 justify-center mr-8">
+    <a class="text-on-surface-variant hover:text-primary transition-colors text-sm" href="/admin">العملاء</a>
+    <a class="text-primary font-bold border-b-2 border-primary pb-1 text-sm" href="/admin/escalations">التصعيدات</a>
+    <a class="text-on-surface-variant hover:text-primary transition-colors text-sm" href="/admin/analytics">التحليلات</a>
+  </nav>
+  <button type="button" id="logout-btn" class="text-sm text-on-surface-variant border border-outline-variant rounded-lg px-4 py-2 hover:bg-surface-container-low transition-colors">تسجيل الخروج</button>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-6 md:px-10 py-8">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+      <h1 class="font-headline-md text-headline-md text-on-surface">صندوق التصعيدات المُجمّع</h1>
+      <p class="text-on-surface-variant mt-1 text-sm">كل التصعيدات لإنسان من كل العملاء بمكان واحد.</p>
+    </div>
+    <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+      <input type="checkbox" id="show-handled-checkbox" class="w-4 h-4">
+      إظهار المعالجة كمان
+    </label>
+  </div>
+
+  <div id="loading" class="text-center py-16 text-on-surface-variant">لحظة...</div>
+
+  <div id="table-wrap" class="bg-surface rounded-xl shadow-sm border border-outline-variant overflow-hidden" style="display:none;">
+    <div class="overflow-x-auto">
+      <table class="w-full text-right border-collapse">
+        <thead>
+          <tr class="bg-surface-container-low border-b border-outline-variant">
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">الشركة</th>
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">القناة</th>
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">معرّف الزبون</th>
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">آخر رسالة قبل التصعيد</th>
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">الوقت</th>
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">الحالة</th>
+            <th class="py-4 px-6 text-xs text-on-surface-variant font-semibold whitespace-nowrap">إجراء</th>
+          </tr>
+        </thead>
+        <tbody id="escalations-body" class="divide-y divide-outline-variant"></tbody>
+      </table>
+    </div>
+    <div id="empty-state" class="text-center py-16 text-on-surface-variant" style="display:none;">
+      <span class="material-symbols-outlined text-4xl text-outline mb-2 block">inbox</span>
+      لا يوجد تصعيدات تتطلب المعالجة حالياً.
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var escalationsCache = [];
+
+  function esc(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+    return fetch(url, opts).then(function (res) {
+      if (res.status === 401) { window.location.href = "/admin/login"; throw new Error("unauthorized"); }
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || "صار خطأ");
+        return data;
+      });
+    });
+  }
+
+  function formatDate(isoStr) {
+    if (!isoStr) return "-";
+    try {
+      var d = new Date(isoStr);
+      return d.toLocaleDateString("ar") + " " + d.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return isoStr; }
+  }
+
+  document.getElementById("logout-btn").addEventListener("click", function () {
+    api("/admin/logout", { method: "POST" }).then(function () { window.location.href = "/admin/login"; });
+  });
+
+  function render() {
+    var showHandled = document.getElementById("show-handled-checkbox").checked;
+    var body = document.getElementById("escalations-body");
+    var empty = document.getElementById("empty-state");
+    var filtered = escalationsCache.filter(function (e) { return showHandled || !e.handled; });
+
+    if (!filtered.length) {
+      body.innerHTML = "";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+
+    body.innerHTML = filtered.map(function (item) {
+      var channelLabel = item.channel === "whatsapp" ? "واتساب" : "ودجت الموقع";
+      var statusBadge = item.handled
+        ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium" style="background:#ecfdf5; color:#059669;">معالج ✓</span>'
+        : '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium" style="background:#fff2df; color:#8a5300;">بانتظار المعالجة</span>';
+      var actionBtn = item.handled
+        ? '<button type="button" data-unhandle-client="' + esc(item.clientId) + '" data-unhandle-id="' + esc(item.id) + '" class="border border-outline-variant text-on-surface text-sm px-3 py-1.5 rounded-lg hover:bg-surface-container-low transition-colors">↩️ إلغاء التعليم</button>'
+        : '<button type="button" data-handle-client="' + esc(item.clientId) + '" data-handle-id="' + esc(item.id) + '" class="bg-primary text-on-primary text-sm px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity">✓ تعليم كمعالج</button>';
+
+      return (
+        '<tr class="hover:bg-surface-container-lowest transition-colors">' +
+        '<td class="py-4 px-6"><div class="text-sm font-semibold">' + esc(item.displayName) + '</div><div class="text-xs text-on-surface-variant" dir="ltr">' + esc(item.clientId) + '</div></td>' +
+        '<td class="py-4 px-6 text-sm">' + channelLabel + '</td>' +
+        '<td class="py-4 px-6 text-sm" dir="ltr">' + esc(item.endUserId) + '</td>' +
+        '<td class="py-4 px-6 text-sm max-w-[260px] truncate" title="' + esc(item.lastMessage || "") + '">' + esc(item.lastMessage || "-") + '</td>' +
+        '<td class="py-4 px-6 text-sm text-on-surface-variant whitespace-nowrap">' + formatDate(item.at) + '</td>' +
+        '<td class="py-4 px-6">' + statusBadge + '</td>' +
+        '<td class="py-4 px-6">' + actionBtn + '</td>' +
+        '</tr>'
+      );
+    }).join("");
+
+    body.querySelectorAll("[data-handle-client]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        api("/admin/api/escalations/" + btn.getAttribute("data-handle-client") + "/" + btn.getAttribute("data-handle-id") + "/handle", { method: "POST" })
+          .then(loadEscalations);
+      });
+    });
+    body.querySelectorAll("[data-unhandle-client]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        api("/admin/api/escalations/" + btn.getAttribute("data-unhandle-client") + "/" + btn.getAttribute("data-unhandle-id") + "/unhandle", { method: "POST" })
+          .then(loadEscalations);
+      });
+    });
+  }
+
+  function loadEscalations() {
+    return api("/admin/api/escalations").then(function (data) {
+      escalationsCache = data.escalations || [];
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("table-wrap").style.display = "block";
+      render();
+    }).catch(function (err) {
+      if (err.message !== "unauthorized") {
+        document.getElementById("loading").textContent = "صار خطأ بتحميل التصعيدات.";
+      }
+    });
+  }
+
+  document.getElementById("show-handled-checkbox").addEventListener("change", render);
+
+  loadEscalations();
+})();
+</script>
+
+</body>
+</html>

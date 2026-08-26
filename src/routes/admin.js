@@ -88,6 +88,22 @@ router.get("/admin/client/:id", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-client-detail.html"));
 });
 
+router.get("/admin/escalations", (req, res) => {
+  const cookies = parseCookies(req);
+  if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
+    return res.redirect("/admin/login");
+  }
+  res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-escalations.html"));
+});
+
+router.get("/admin/analytics", (req, res) => {
+  const cookies = parseCookies(req);
+  if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
+    return res.redirect("/admin/login");
+  }
+  res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-analytics.html"));
+});
+
 // ---------- مصادقة ----------
 
 router.post("/admin/login", express.json(), (req, res) => {
