@@ -14,5 +14,24 @@
   },
   "status": "active",
   "knowledgeSourceLabel": "اختبار: بيانات مُدخلة يدويًا 2026-08-09",
-  "subscriptionExpiresAt": null
+  "subscriptionExpiresAt": null,
+  "botPaused": false,
+  "appointments": {
+    "enabled": false
+  },
+  "salesMode": true,
+  "channels": {
+    "whatsapp": {
+      "enabled": true
+    },
+    "web": {
+      "enabled": true
+    },
+    "telegram": {
+      "enabled": true
+    }
+  },
+  "voice": {
+    "enabled": true
+  }
 }
