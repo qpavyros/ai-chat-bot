@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة تحكم المشغّل</title>
+<style>
+  :root {
+    --teal: #0f766e; --teal-dark: #115e59; --teal-bg: #f0fdfa;
+    --bg: #f9fafb; --fg: #1a1a1a; --muted: #6b7280; --border: #e5e7eb;
+    --danger: #b91c1c; --danger-bg: #fef2f2; --warn: #b45309; --warn-bg: #fffbeb;
+    --ok-bg: #f0fdf4; --ok: #166534;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "IBM Plex Sans Arabic", -apple-system, "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--fg); margin: 0; }
+  header { background: white; border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 1.1rem; margin: 0; color: var(--teal-dark); }
+  header .actions { display: flex; gap: 10px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  button { cursor: pointer; border: none; border-radius: 8px; padding: 9px 16px; font-size: 0.88rem; }
+  .btn-primary { background: var(--teal); color: white; }
+  .btn-primary:hover { background: var(--teal-dark); }
+  .btn-secondary { background: white; border: 1px solid var(--border); color: var(--fg); }
+  .btn-secondary:hover { background: #f3f4f6; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  th, td { padding: 12px 14px; text-align: right; font-size: 0.88rem; border-bottom: 1px solid var(--border); }
+  th { background: #fafafa; color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+  .badge-active { background: var(--ok-bg); color: var(--ok); }
+  .badge-disabled { background: var(--danger-bg); color: var(--danger); }
+  .badge-expiring { background: var(--warn-bg); color: var(--warn); }
+  .muted { color: var(--muted); font-size: 0.8rem; }
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 10; }
+  .overlay.open { display: flex; }
+  .modal { background: white; border-radius: 14px; padding: 28px; width: 100%; max-width: 560px; }
+  .modal h2 { margin: 0 0 18px; font-size: 1.05rem; }
+  .modal label { display: block; font-size: 0.82rem; color: #4b5563; margin: 12px 0 5px; }
+  .modal input, .modal select, .modal textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+  .modal textarea { resize: vertical; font-family: inherit; font-size: 0.88rem; }
+  .modal #f_knowledge { min-height: 160px; font-family: ui-monospace, monospace; font-size: 0.83rem; }
+  .intake-divider { margin: 18px 0 4px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 0.8rem; font-weight: 600; color: var(--teal-dark); }
+  .modal .row { display: flex; gap: 12px; }
+  .modal .row > div { flex: 1; }
+  .modal-actions { display: flex; justify-content: space-between; margin-top: 20px; gap: 10px; }
+  .modal-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; min-height: 1em; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 8px 14px; font-size: 0.85rem; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--teal-dark); border-color: var(--teal); font-weight: 600; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .checklist-item:last-child { border-bottom: none; }
+  .checklist-item input { width: auto; margin-top: 3px; }
+  .checklist-item .ci-label { font-size: 0.87rem; font-weight: 600; }
+  .checklist-item .ci-hint { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .checklist-progress { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+  .badge-progress { background: var(--warn-bg); color: var(--warn); }
+
+  .preview-chat-log { height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #fafafa; display: flex; flex-direction: column; gap: 8px; }
+  .preview-msg { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap; }
+  .preview-msg-user { align-self: flex-end; background: var(--teal); color: white; }
+  .preview-msg-bot { align-self: flex-start; background: white; border: 1px solid var(--border); }
+  .preview-msg-error { align-self: flex-start; background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; }
+  #previewChatInput { width: auto; margin: 0; }
+
+  @media (prefers-color-scheme: dark) {
+    body { background: #0b0f0e; color: #e5e7eb; }
+    header, table, .modal { background: #12181a; border-color: #263033; }
+    th { background: #16201f; }
+    tr:hover td { background: #16201f; }
+    td, th { border-color: #263033; }
+    .btn-secondary { background: #12181a; border-color: #263033; color: #e5e7eb; }
+    .btn-secondary:hover { background: #1c2a29; }
+    .modal input, .modal select, .modal textarea { background: #0e1516; border-color: #263033; color: #e5e7eb; }
+    .preview-chat-log { background: #0e1516; border-color: #263033; }
+    .preview-msg-bot { background: #12181a; border-color: #263033; color: #e5e7eb; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎛️ لوحة تحكم المشغّل (قديمة)</h1>
+  <div class="actions">
+    <a href="/admin" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;">⬅ قائمة العملاء الجديدة</a>
+    <button class="btn-secondary" id="analyticsToggleBtn">📊 تحليلات</button>
+    <button class="btn-secondary" id="escalationsToggleBtn">📥 صندوق التصعيدات</button>
+    <button class="btn-primary" id="addClientBtn">+ إضافة عميل</button>
+    <button class="btn-secondary" id="logoutBtn">خروج</button>
+  </div>
+</header>
+
+<main>
+  <div id="clientsView">
+    <table id="clientsTable">
+      <thead>
+        <tr>
+          <th>الشركة</th>
+          <th>الباقة</th>
+          <th>الحالة</th>
+          <th>ينتهي</th>
+          <th>مصدر المعرفة</th>
+          <th>ملفات المعرفة</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="clientsBody"></tbody>
+    </table>
+    <div class="empty" id="emptyState" style="display:none">ما في عملاء بعد. دوس "+ إضافة عميل".</div>
+  </div>
+
+  <div id="escalationsView" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="font-size:1.05rem; margin:0; color:var(--teal-dark);">📥 صندوق التصعيدات المُجمّع</h2>
+      <label style="font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:6px; color:var(--muted);">
+        <input type="checkbox" id="showHandledCheckbox" style="width:auto;"> إظهار المعالجة كمان
+      </label>
+    </div>
+    <table id="escalationsTable">
+      <thead>
+        <tr>
+          <th>الشركة</th>
+          <th>القناة</th>
+          <th>معرّف الزبون</th>
+          <th>آخر رسالة قبل التصعيد</th>
+          <th>الوقت</th>
+          <th>الحالة</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody id="escalationsBody"></tbody>
+    </table>
+    <div class="empty" id="escalationsEmpty" style="display:none">لا يوجد تصعيدات تتطلب المعالجة حالياً.</div>
+  </div>
+
+  <div id="analyticsView" style="display:none">
+    <h2 style="font-size:1.05rem; margin:0 0 16px; color:var(--teal-dark);">📊 تحليلات العملاء</h2>
+
+    <div style="background:white; border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+        <h3 style="margin:0; font-size:0.95rem; color:var(--teal-dark);">الاستخدام آخر ١٤ يوم</h3>
+        <div style="font-size:0.85rem;" id="statsCostLine"></div>
+      </div>
+      <div id="statsChart" dir="ltr" style="display:flex; align-items:flex-end; gap:4px; height:140px;"></div>
+      <div id="statsLegend" style="display:flex; gap:14px; margin-top:8px; font-size:0.75rem; color:var(--muted, #6b7280);" dir="ltr">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#0d9488;border-radius:2px;"></span> رسائل LLM</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#94a3b8;border-radius:2px;"></span> ردود كاش</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;"></span> خارج الدوام</span>
+      </div>
+    </div>
+
+    <table id="analyticsTable">
+      <thead>
+        <tr>
+          <th>الشركة</th>
+          <th>الحالة</th>
+          <th>زبائن فريدون</th>
+          <th>نشطون آخر 7 أيام</th>
+          <th>طلبات</th>
+          <th>مواعيد</th>
+          <th>تصعيدات (غير معالجة)</th>
+        </tr>
+      </thead>
+      <tbody id="analyticsBody"></tbody>
+    </table>
+    <div class="empty" id="analyticsEmpty" style="display:none">ما في بيانات كافية بعد.</div>
+  </div>
+</main>
+
+<!-- Modal: تعديل/عرض عميل -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h2 id="editTitle">تعديل عميل</h2>
+    <div class="tabs">
+      <div class="tab active" data-tab="info">معلومات</div>
+      <div class="tab" data-tab="knowledge">قاعدة المعرفة</div>
+      <div class="tab" data-tab="onboarding">خطوات الإعداد</div>
+      <div class="tab" data-tab="preview">🧪 تجربة محادثة</div>
+    </div>
+
+    <div class="tab-panel active" data-panel="info">
+      <label>اسم الشركة</label>
+      <input id="f_displayName">
+      <div class="row">
+        <div>
+          <label>الحالة</label>
+          <select id="f_status">
+            <option value="active">فعّال</option>
+            <option value="disabled">موقوف</option>
+          </select>
+        </div>
+        <div>
+          <label>الباقة</label>
+          <select id="f_tier">
+            <option value="">بدون باقة (يدوي)</option>
+            <option value="starter">Starter — $29/شهر</option>
+            <option value="growth">Growth — $59/شهر</option>
+            <option value="pro">Pro — $99/شهر</option>
+          </select>
+        </div>
+      </div>
+      <label>تاريخ انتهاء الاشتراك</label>
+      <input type="date" id="f_expiresAt">
+      <div style="margin:4px 0 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="btn-secondary" id="recordPaymentBtn">💰 سجّل دفعة (+30 يوم)</button>
+        <select id="f_topupPack" style="width:auto;">
+          <option value="small">شحن: 100 رسالة — $8</option>
+          <option value="medium">شحن: 300 رسالة — $21</option>
+        </select>
+        <button type="button" class="btn-secondary" id="topupBtn">⚡ اشحن رصيد</button>
+        <span id="paymentStatus" class="muted"></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <input type="checkbox" id="f_voiceEnabled" style="width:auto;">
+        <label for="f_voiceEnabled" style="margin:0;">🎤 الرد على الرسائل الصوتية (سقف شهري حسب الباقة)</label>
+        <span id="topupStatus" class="muted"></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <input type="checkbox" id="f_salesMode" style="width:auto;">
+        <label for="f_salesMode" style="margin:0;">💼 أسلوب البيع النشط (قراءة نية الزبون وإغلاق الصفقة تلقائيًا)</label>
+      </div>
+      <div style="border-top:1px solid var(--border); padding-top:12px; margin-bottom:10px;">
+        <label style="font-weight:bold;">⏯️ التشغيل والقنوات</label>
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_botPaused" style="width:auto;">
+          <label for="f_botPaused" style="margin:0;">⏸️ إيقاف الرد مؤقتاً (كل القنوات)</label>
+        </div>
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_channelWhatsapp" style="width:auto;">
+          <label for="f_channelWhatsapp" style="margin:0;">واتساب مفعّل</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_channelWeb" style="width:auto;">
+          <label for="f_channelWeb" style="margin:0;">ودجت الموقع مفعّل</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_channelTelegram" style="width:auto;">
+          <label for="f_channelTelegram" style="margin:0;">تلغرام مفعّل</label>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:6px; margin-bottom:10px;">
+        <label style="font-weight:bold;">📅 المواعيد والتذكيرات</label>
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_apptEnabled" style="width:auto;">
+          <label for="f_apptEnabled" style="margin:0;">حجز المواعيد مفعّل</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_ordersEnabled" style="width:auto;">
+          <label for="f_ordersEnabled" style="margin:0;">🛒 تسجيل الطلبات مفعّل</label>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>دوام من</label>
+          <input type="time" id="f_apptStart" value="09:00">
+        </div>
+        <div>
+          <label>إلى</label>
+          <input type="time" id="f_apptEnd" value="17:00">
+        </div>
+        <div>
+          <label>مدة الخانة (دقيقة)</label>
+          <input type="number" id="f_apptSlot" value="30" min="5" max="240" step="5">
+        </div>
+      </div>
+      <div class="row">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_remindersEnabled" style="width:auto;">
+          <label for="f_remindersEnabled" style="margin:0;">🔔 تذكير تلقائي قبل الموعد</label>
+        </div>
+        <div>
+          <label>قبل (ساعات، مفصولة بفاصلة)</label>
+          <input id="f_remHours" dir="ltr" placeholder="24,2" value="24,2">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>اسم قالب تذكير Meta المعتمد (اختياري — للإرسال خارج نافذة ٢٤سا)</label>
+          <input id="f_remTemplate" dir="ltr" placeholder="appointment_reminder">
+        </div>
+        <div>
+          <label>لغة القالب</label>
+          <input id="f_remLang" dir="ltr" value="ar">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>كود الإحالة تبعه (يشاركه لعملاء جداد)</label>
+          <input id="f_referralCode" dir="ltr" readonly style="background:var(--bg); cursor:default;">
+        </div>
+        <div>
+          <label>مُحال من (Client ID لعميل تاني، اختياري)</label>
+          <input id="f_referredByClientId" dir="ltr" placeholder="مثلاً: example-client">
+        </div>
+      </div>
+      <div id="referralStatusLine" class="muted" style="margin:2px 0 16px;"></div>
+      <label>رقم تواصل التصعيد</label>
+      <input id="f_phone">
+      <label>وصف التصعيد (يظهر للزبون)</label>
+      <input id="f_contactMethod">
+      <label>رقم واتساب الإشعارات (صاحب المحل)</label>
+      <input id="f_notifyWhatsapp">
+      <label>WhatsApp Phone Number ID (من WABA خاص العميل — خطوة 2 بدليل الإعداد)</label>
+      <input id="f_whatsappPhoneNumberId" placeholder="مثلاً: 1170763732796739" dir="ltr">
+      <label>مصدر المعرفة (ملاحظة حرة — اسم ملف/رابط موقع)</label>
+      <input id="f_knowledgeSourceLabel" placeholder="مثلاً: PDF أرسله الزبون بتاريخ 2026-08-09، أو رابط الموقع">
+      <div class="row" style="margin-top:14px;">
+        <div>
+          <label>توكن بوت تلغرام (من @BotFather)</label>
+          <input id="f_telegramBotToken" dir="ltr" placeholder="123456:ABC-DEF...">
+        </div>
+        <div>
+          <label>توكن بوت ديسكورد (Message Content Intent مفعّل)</label>
+          <input id="f_discordBotToken" dir="ltr" placeholder="MTIz...">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>لون الودجت</label>
+          <input type="color" id="f_widgetAccent" value="#00288e" style="width:100%; height:38px; padding:3px; cursor:pointer;">
+        </div>
+        <div>
+          <label>عنوان الودجت (اختياري)</label>
+          <input id="f_widgetTitle" placeholder="افتراضياً: اسألنا أي شي">
+        </div>
+      </div>
+      <label>أسئلة مقترحة بالودجت (سؤال لكل سطر، حتى ٤)</label>
+      <textarea id="f_widgetSuggestions" rows="3" placeholder="شو ساعات الدوام؟&#10;وين عنوانكم؟"></textarea>
+      <div class="row" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="f_businessEnabled" style="width:auto;">
+          <label style="margin:0;">تفعيل رد آلي خارج الدوام</label>
+        </div>
+        <div>
+          <label>ساعات الدوام (من – إلى)</label>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input type="time" id="f_businessStart" value="09:00">
+            <span>–</span>
+            <input type="time" id="f_businessEnd" value="17:00">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="knowledge">
+      <label>knowledge.md</label>
+      <textarea id="f_knowledge"></textarea>
+      <div class="muted" style="margin-top:6px">بيتحفظ بملف منفصل (زر "حفظ المعرفة" تحت) — نسخة احتياطية تلقائية قبل كل حفظ.</div>
+      <div style="margin-top:10px"><button class="btn-secondary" id="saveKnowledgeBtn">حفظ المعرفة</button></div>
+    </div>
+
+    <div class="tab-panel" data-panel="onboarding">
+      <div class="checklist-progress" id="checklistProgress"></div>
+      <div id="checklistItems"></div>
+      <div class="muted" style="margin-top:12px">كل خطوة بتتحفظ فورًا لما تشيّكها — مبني على قرار: كل عميل إله WABA (WhatsApp Business Portfolio) خاص فيه، مش portfolio مشترك.</div>
+    </div>
+
+    <div class="tab-panel" data-panel="preview">
+      <div class="muted" style="margin-bottom:10px">جرّب رد البوت مباشرة بمعرفة هالعميل الفعلية — بدون واتساب حقيقي. هاي محادثة تجربة منفصلة تمامًا عن زبائن حقيقيين، وما بتدخل بإحصائيات التحليلات.</div>
+      <div class="preview-chat-log" id="previewChatLog"></div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <input id="previewChatInput" placeholder="اكتب رسالة تجريبية..." style="flex:1; padding:9px 11px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.9rem;">
+        <button class="btn-primary" id="previewChatSendBtn">إرسال</button>
+      </div>
+      <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+        <span id="previewChatStatus" class="muted"></span>
+        <button class="btn-secondary" id="previewChatResetBtn" style="font-size:0.8rem; padding:6px 12px;">🗑️ محادثة جديدة</button>
+      </div>
+    </div>
+
+    <div class="modal-error" id="editError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeEditBtn">إغلاق</button>
+      <button class="btn-primary" id="saveInfoBtn">حفظ المعلومات</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: إضافة عميل -->
+<div class="overlay" id="addOverlay">
+  <div class="modal">
+    <h2>إضافة عميل جديد</h2>
+    <label>اسم الشركة *</label>
+    <input id="a_companyName" required>
+    <div class="row">
+      <div>
+        <label>رقم تواصل التصعيد *</label>
+        <input id="a_escalationPhone" required>
+      </div>
+      <div>
+        <label>رقم واتساب الإشعارات</label>
+        <input id="a_notifyWhatsapp">
+      </div>
+    </div>
+    <label>إيميل تواصل (اختياري)</label>
+    <input id="a_contactEmail">
+    <div class="row">
+      <div>
+        <label>تاريخ انتهاء الاشتراك (اختياري)</label>
+        <input type="date" id="a_expiresAt">
+      </div>
+      <div>
+        <label>الباقة</label>
+        <select id="a_tier">
+          <option value="">بدون باقة (يدوي)</option>
+          <option value="starter">Starter — $29/شهر</option>
+          <option value="growth">Growth — $59/شهر</option>
+          <option value="pro">Pro — $99/شهر</option>
+        </select>
+      </div>
+    </div>
+    <label>مُحال من (Client ID لعميل تاني، اختياري)</label>
+    <input id="a_referredByClientId" dir="ltr" placeholder="مثلاً: example-client">
+    <label>مصدر المعرفة (ملاحظة حرة)</label>
+    <input id="a_knowledgeSourceLabel" placeholder="مثلاً: رابط الموقع أو اسم ملف PDF">
+
+    <div class="intake-divider">قاعدة المعرفة — خانات منظّمة (بتتحوّل تلقائيًا لـknowledge.md بصيغة موحّدة)</div>
+
+    <label>عن المحل/الشركة (وصف قصير)</label>
+    <textarea id="a_about" rows="2" placeholder="نوع النشاط، مين الزبون المستهدف، أي ميزة تميّزهم..."></textarea>
+
+    <label>الفئات/الخدمات الرئيسية (سطر لكل فئة)</label>
+    <textarea id="a_categories" rows="3" placeholder="لابتوبات&#10;موبايلات&#10;إكسسوارات"></textarea>
+
+    <label>الماركات (مفصولة بفاصلة، اختياري)</label>
+    <input id="a_brands" placeholder="Samsung, Apple, TP-Link...">
+
+    <div class="row">
+      <div>
+        <label>دوام العمل</label>
+        <input id="a_hours" placeholder="السبت-الخميس 9ص-7م">
+      </div>
+      <div>
+        <label>طريقة الدفع</label>
+        <input id="a_payment" placeholder="كاش، Whish، بطاقة...">
+      </div>
+    </div>
+
+    <label>الفروع/العنوان (سطر لكل فرع)</label>
+    <textarea id="a_branches" rows="2" placeholder="الحمرا: شارع الحمرا مقابل صيدلية العرب&#10;الأشرفية: ..."></textarea>
+
+    <label>التوصيل (المناطق، الكلفة، المدة)</label>
+    <textarea id="a_delivery" rows="2" placeholder="توصيل لكل لبنان، مجاني فوق 50$، خلال يوم-يومين"></textarea>
+
+    <label>الضمان/الاسترجاع</label>
+    <textarea id="a_warranty" rows="2" placeholder="استرجاع خلال 7 أيام بالفاتورة، ضمان سنة على..."></textarea>
+
+    <label>منتجات/خدمات مختارة (سطر لكل وحدة: الاسم - السعر - وصف قصير)</label>
+    <textarea id="a_products" rows="4" placeholder="Galaxy A55 - 330$ - رام 8/128، شاشة 120Hz&#10;توصيل توصيل سريع - 5$ - خلال ساعتين"></textarea>
+
+    <label>ملاحظات إضافية (اختياري)</label>
+    <textarea id="a_extra" rows="2"></textarea>
+
+    <div class="modal-error" id="addError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeAddBtn">إلغاء</button>
+      <button class="btn-primary" id="createClientBtn">إنشاء</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var clientsCache = [];
+  var currentEditId = null;
+  var currentEditConfig = null; // نسخة بالذاكرة تُحدَّث فورًا مع كل تشييك، تفادياً لتضارب حفظ متزامن (GET-قديم ثم PUT بيضيع تشييك سابق)
+
+  // الباقات — قرار مجلس LLM 2026-08-12 (لازم تطابق src/config.js plans بالضبط)
+  var TIER_LABELS = { starter: 'Starter — $29', growth: 'Growth — $59', pro: 'Pro — $99' };
+  var REFERRAL_REWARD_MONTHS = 2;
+
+  // دليل ربط واتساب — خطوة بخطوة، مبني على قرار: كل عميل WABA خاص فيه (مش portfolio مشترك)
+  var ONBOARDING_STEPS = [
+    { id: 'waba_created', label: '1. العميل أنشأ Meta Business Manager خاص فيه', hint: 'باسم محله، مش حسابك أنت' },
+    { id: 'app_created', label: '2. أنشأ WhatsApp Business Platform App ووثّق رقم الهاتف', hint: 'رقم بزنس مخصص، مش رقمه الشخصي — طلع منه Phone Number ID' },
+    { id: 'system_user_access', label: '3. أعطاك صلاحية System User على WABA تبعو', hint: 'whatsapp_business_messaging + whatsapp_business_management — بدون ما تصير مالك' },
+    { id: 'phone_id_saved', label: '4. عبّيت Phone Number ID بتبويب "معلومات" وربطت الـ Webhook', hint: 'نفس رابط /webhook وverify token العام' },
+    { id: 'knowledge_filled', label: '5. عبّيت قاعدة المعرفة (منتجات/خدمات، دوام، دفع، توصيل)', hint: 'تبويب "قاعدة المعرفة" — مختصرة ومنظّمة' },
+    { id: 'orders_configured', label: '6. فعّلت orders أو appointments حسب طبيعة نشاطه', hint: '' },
+    { id: 'test_message_ok', label: '7. جرّبت رسالة اختبار وردّ البوت صح (وصعّد صح لما ما بيعرف)', hint: '' },
+    { id: 'monitored_48h', label: '8. راقبت أول 24-48 ساعة مع صاحب النشاط وأخذت فيدباك', hint: '' },
+  ];
+
+  function checklistOf(cfg) {
+    return (cfg && cfg.onboardingChecklist) || {};
+  }
+
+  function checklistDoneCount(cfg) {
+    var cl = checklistOf(cfg);
+    return ONBOARDING_STEPS.filter(function (s) { return cl[s.id]; }).length;
+  }
+
+  function api(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    return fetch(url, opts).then(function (res) {
+      if (res.status === 401) { window.location.href = '/admin/login'; throw new Error('unauthorized'); }
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || 'صار خطأ');
+        return data;
+      });
+    });
+  }
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    var diff = new Date(dateStr).getTime() - Date.now();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function statusBadge(client) {
+    if (client.status === 'disabled') return '<span class="badge badge-disabled">موقوف</span>';
+    var days = daysUntil(client.expiresAt);
+    if (days !== null && days <= 7) {
+      return '<span class="badge badge-expiring">فعّال — بينتهي خلال ' + days + ' يوم</span>';
+    }
+    return '<span class="badge badge-active">فعّال</span>';
+  }
+
+  function renderClients() {
+    var body = document.getElementById('clientsBody');
+    var empty = document.getElementById('emptyState');
+    body.innerHTML = '';
+
+    if (!clientsCache.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    clientsCache.forEach(function (c) {
+      var tr = document.createElement('tr');
+      var doneCount = checklistDoneCount(c);
+      var progressBadge = doneCount < ONBOARDING_STEPS.length
+        ? '<div class="badge badge-progress" style="margin-top:4px">إعداد واتساب: ' + doneCount + '/' + ONBOARDING_STEPS.length + '</div>'
+        : '';
+      var tierCell = c.tier
+        ? '<span class="badge badge-active">' + escapeHtml(TIER_LABELS[c.tier] || c.tier) + '</span>'
+        : '<span class="muted">بدون باقة</span>';
+      var referralCell = '';
+      if (c.pendingReferralRewards && c.pendingReferralRewards.length) {
+        referralCell = '<div style="margin-top:6px">';
+        c.pendingReferralRewards.forEach(function (r) {
+          referralCell +=
+            '<button class="btn-secondary" style="font-size:0.76rem; padding:4px 9px; margin-inline-end:4px;" ' +
+            'data-apply-referral="' + escapeHtml(r.clientId) + '">🎁 مستحقة من ' + escapeHtml(r.displayName) + '</button>';
+        });
+        referralCell += '</div>';
+      }
+      tr.innerHTML =
+        '<td><strong>' + escapeHtml(c.displayName) + '</strong><div class="muted">' + c.id + '</div>' + progressBadge + referralCell + '</td>' +
+        '<td>' + tierCell + '</td>' +
+        '<td>' + statusBadge(c) + '</td>' +
+        '<td>' + (c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('ar') : '<span class="muted">بدون تاريخ</span>') + '</td>' +
+        '<td>' + (c.knowledgeSource ? escapeHtml(c.knowledgeSource) : '<span class="muted">غير محدد</span>') + '</td>' +
+        '<td class="muted">' + c.knowledgeFiles.length + ' ملف</td>' +
+        '<td><button class="btn-secondary" data-edit="' + c.id + '">تعديل</button></td>';
+      body.appendChild(tr);
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-apply-referral]'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var referredId = btn.getAttribute('data-apply-referral');
+        if (!confirm('تأكيد تطبيق مكافأة الإحالة (تمديد ' + REFERRAL_REWARD_MONTHS + ' شهر) لهالعميل؟')) return;
+        api('/admin/api/clients/' + referredId + '/apply-referral-reward', { method: 'POST' })
+          .then(function () { loadClients(); })
+          .catch(function (err) { alert(err.message); });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn.getAttribute('data-edit')); });
+    });
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function loadClients() {
+    api('/admin/api/clients').then(function (data) {
+      clientsCache = data.clients;
+      renderClients();
+    });
+  }
+
+  function openEdit(id) {
+    currentEditId = id;
+    document.getElementById('editError').textContent = '';
+    document.getElementById('paymentStatus').textContent = '';
+    document.getElementById('previewChatLog').innerHTML = '';
+    document.getElementById('previewChatStatus').textContent = '';
+    api('/admin/api/clients/' + id).then(function (data) {
+      var cfg = data.config;
+      document.getElementById('editTitle').textContent = 'تعديل: ' + cfg.displayName;
+      document.getElementById('f_displayName').value = cfg.displayName || '';
+      document.getElementById('f_status').value = cfg.status || 'active';
+      document.getElementById('f_expiresAt').value = (cfg.trialExpiresAt || cfg.subscriptionExpiresAt || '').slice(0, 10);
+      document.getElementById('f_phone').value = cfg.escalation?.phone || '';
+      document.getElementById('f_contactMethod').value = cfg.escalation?.contactMethod || '';
+      document.getElementById('f_notifyWhatsapp').value = cfg.escalation?.notifyWhatsapp || '';
+      document.getElementById('f_whatsappPhoneNumberId').value = cfg.whatsappPhoneNumberId || '';
+      document.getElementById('f_knowledgeSourceLabel').value = cfg.source?.value || cfg.knowledgeSourceLabel || '';
+      document.getElementById('f_telegramBotToken').value = cfg.telegramBotToken || '';
+      document.getElementById('f_discordBotToken').value = cfg.discordBotToken || '';
+      document.getElementById('f_widgetAccent').value = cfg.widget?.accentColor || '#00288e';
+      document.getElementById('f_widgetTitle').value = cfg.widget?.title || '';
+      document.getElementById('f_widgetSuggestions').value = (cfg.widget?.suggestions || []).join('\n');
+      document.getElementById('f_businessEnabled').checked = Boolean(cfg.businessHours?.enabled);
+      document.getElementById('f_businessStart').value = cfg.businessHours?.start || '09:00';
+      document.getElementById('f_businessEnd').value = cfg.businessHours?.end || '17:00';
+      document.getElementById('f_voiceEnabled').checked = cfg.voice?.enabled !== false;
+      document.getElementById('f_salesMode').checked = cfg.salesMode !== false;
+      document.getElementById('f_botPaused').checked = Boolean(cfg.botPaused);
+      document.getElementById('f_channelWhatsapp').checked = cfg.channels?.whatsapp?.enabled !== false;
+      document.getElementById('f_channelWeb').checked = cfg.channels?.web?.enabled !== false;
+      document.getElementById('f_channelTelegram').checked = cfg.channels?.telegram?.enabled !== false;
+      document.getElementById('f_apptEnabled').checked = Boolean(cfg.appointments?.enabled);
+      document.getElementById('f_ordersEnabled').checked = Boolean(cfg.orders?.enabled);
+      var apptHours = cfg.appointments?.workingHours || {};
+      if (apptHours.start) { document.getElementById('f_apptStart').value = apptHours.start; }
+      if (apptHours.end) { document.getElementById('f_apptEnd').value = apptHours.end; }
+      document.getElementById('f_apptSlot').value = cfg.appointments?.slotMinutes || 30;
+      document.getElementById('f_remindersEnabled').checked = Boolean(cfg.appointments?.reminders?.enabled);
+      document.getElementById('f_remHours').value = (cfg.appointments?.reminders?.hoursBefore || [24, 2]).join(',');
+      document.getElementById('f_remTemplate').value = cfg.appointments?.reminders?.templateName || '';
+      document.getElementById('f_remLang').value = cfg.appointments?.reminders?.templateLang || 'ar';
+      var creditsEl = document.getElementById('topupStatus');
+      if (creditsEl) {
+        creditsEl.textContent = (cfg.topUpCreditsRemaining > 0)
+          ? '⚡ رصيد الشحن الحالي: ' + cfg.topUpCreditsRemaining + ' رسالة'
+          : '⚡ ما في رصيد شحن';
+      }
+      document.getElementById('f_knowledge').value = data.knowledge || '';
+      document.getElementById('f_tier').value = cfg.tier || '';
+      document.getElementById('f_referralCode').value = cfg.referralCode || '(غير متوفر — أنشئ العميل قبل إضافة كود الإحالة)';
+      document.getElementById('f_referredByClientId').value = cfg.referredByClientId || '';
+      var payCount = (cfg.paymentHistory || []).length;
+      var referralLine = document.getElementById('referralStatusLine');
+      if (cfg.referredByClientId) {
+        referralLine.textContent = cfg.referralRewarded
+          ? '✓ مكافأة الإحالة انصرفت مسبقاً لمُحيل هالعميل.'
+          : 'دفعات مسجّلة: ' + payCount + ' — المكافأة بتصير متاحة تلقائياً بجدول العملاء لما توصل دفعتين متتاليتين.';
+      } else {
+        referralLine.textContent = '';
+      }
+      currentEditConfig = cfg;
+      renderChecklist(cfg);
+      document.getElementById('editOverlay').classList.add('open');
+    }).catch(function (err) {
+      alert(err.message);
+    });
+  }
+
+  document.getElementById('closeEditBtn').addEventListener('click', function () {
+    document.getElementById('editOverlay').classList.remove('open');
+  });
+
+  document.getElementById('saveInfoBtn').addEventListener('click', function () {
+    var errorEl = document.getElementById('editError');
+    errorEl.textContent = '';
+
+    api('/admin/api/clients/' + currentEditId).then(function (data) {
+      var cfg = data.config;
+      var expiresAt = document.getElementById('f_expiresAt').value || null;
+      var payload = Object.assign({}, cfg, {
+        displayName: document.getElementById('f_displayName').value,
+        status: document.getElementById('f_status').value,
+        tier: document.getElementById('f_tier').value || null,
+        referredByClientId: document.getElementById('f_referredByClientId').value.trim() || null,
+        knowledgeSourceLabel: document.getElementById('f_knowledgeSourceLabel').value,
+        whatsappPhoneNumberId: document.getElementById('f_whatsappPhoneNumberId').value.trim() || undefined,
+        telegramBotToken: document.getElementById('f_telegramBotToken').value.trim() || null,
+        discordBotToken: document.getElementById('f_discordBotToken').value.trim() || null,
+        widget: {
+          accentColor: document.getElementById('f_widgetAccent').value || null,
+          title: document.getElementById('f_widgetTitle').value.trim() || null,
+          suggestions: document.getElementById('f_widgetSuggestions').value
+            .split(/[\n,]/).map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 6),
+        },
+        businessHours: {
+          enabled: document.getElementById('f_businessEnabled').checked,
+          start: document.getElementById('f_businessStart').value || '09:00',
+          end: document.getElementById('f_businessEnd').value || '17:00',
+        },
+        voice: { enabled: document.getElementById('f_voiceEnabled').checked },
+        salesMode: document.getElementById('f_salesMode').checked,
+        botPaused: document.getElementById('f_botPaused').checked,
+        channels: {
+          whatsapp: { enabled: document.getElementById('f_channelWhatsapp').checked },
+          web: { enabled: document.getElementById('f_channelWeb').checked },
+          telegram: { enabled: document.getElementById('f_channelTelegram').checked },
+        },
+        orders: Object.assign({}, cfg.orders, {
+          enabled: document.getElementById('f_ordersEnabled').checked,
+        }),
+        appointments: Object.assign({}, cfg.appointments, (function () {
+          var enabled = document.getElementById('f_apptEnabled').checked;
+          var out = { enabled: enabled };
+          if (enabled) {
+            out.workingHours = Object.assign({}, (cfg.appointments && cfg.appointments.workingHours) || {}, {
+              start: document.getElementById('f_apptStart').value || '09:00',
+              end: document.getElementById('f_apptEnd').value || '17:00',
+            });
+            out.slotMinutes = Number(document.getElementById('f_apptSlot').value) || 30;
+            var remEnabled = document.getElementById('f_remindersEnabled').checked;
+            var hours = document.getElementById('f_remHours').value.split(',').map(function (s) { return parseInt(s, 10); }).filter(function (n) { return n > 0; });
+            out.reminders = remEnabled
+              ? Object.assign({}, (cfg.appointments && cfg.appointments.reminders) || {}, {
+                  enabled: true,
+                  hoursBefore: hours.length ? hours : [24, 2],
+                  templateName: document.getElementById('f_remTemplate').value.trim() || undefined,
+                  templateLang: document.getElementById('f_remLang').value.trim() || 'ar',
+                })
+              : Object.assign({}, (cfg.appointments && cfg.appointments.reminders) || {}, { enabled: false });
+          }
+          return out;
+        })()),
+        escalation: Object.assign({}, cfg.escalation, {
+          phone: document.getElementById('f_phone').value,
+          contactMethod: document.getElementById('f_contactMethod').value,
+          notifyWhatsapp: document.getElementById('f_notifyWhatsapp').value,
+        }),
+      });
+      if (payload.plan === 'trial') payload.trialExpiresAt = expiresAt;
+      else payload.subscriptionExpiresAt = expiresAt;
+
+      return api('/admin/api/clients/' + currentEditId, { method: 'PUT', body: JSON.stringify(payload) });
+    }).then(function () {
+      document.getElementById('editOverlay').classList.remove('open');
+      loadClients();
+    }).catch(function (err) {
+      errorEl.textContent = err.message;
+    });
+  });
+
+  document.getElementById('recordPaymentBtn').addEventListener('click', function () {
+    var statusEl = document.getElementById('paymentStatus');
+    statusEl.style.color = '';
+    statusEl.textContent = 'جاري التسجيل...';
+
+    // الخادم بيحسب تاريخ التمديد (+30 يوم من الانتهاء الحالي لو بالمستقبل، أو من اليوم)
+    // وبيسجّل الدفعة بـpaymentHistory (أساس حساب استحقاق مكافأة الإحالة).
+    api('/admin/api/clients/' + currentEditId + '/record-payment', { method: 'POST' }).then(function (res) {
+      document.getElementById('f_expiresAt').value = res.nextExpiry;
+      document.getElementById('f_status').value = 'active';
+      statusEl.style.color = 'var(--ok)';
+      statusEl.textContent = 'تسجّلت ✓ — الاشتراك ممدّد لـ' + res.nextExpiry;
+      if (res.referralEligible) {
+        statusEl.textContent += ' — 🎁 مكافأة إحالة صارت مستحقة، بتلاقيها بجدول العملاء عند صف المُحيل.';
+      }
+      loadClients();
+      // نحدّث سطر حالة الإحالة بدون ما نعيد فتح المودال كامل (هيك بيصفّر statusEl فوق)
+      api('/admin/api/clients/' + currentEditId).then(function (data) {
+        var payCount = (data.config.paymentHistory || []).length;
+        var referralLine = document.getElementById('referralStatusLine');
+        if (data.config.referredByClientId) {
+          referralLine.textContent = data.config.referralRewarded
+            ? '✓ مكافأة الإحالة انصرفت مسبقاً لمُحيل هالعميل.'
+            : 'دفعات مسجّلة: ' + payCount + ' — المكافأة بتصير متاحة تلقائياً بجدول العملاء لما توصل دفعتين متتاليتين.';
+        }
+        currentEditConfig = data.config;
+      });
+    }).catch(function (err) {
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = err.message;
+    });
+  });
+
+  // ---------- شحن رصيد رسائل إضافية (top-up) ----------
+  document.getElementById('topupBtn').addEventListener('click', function () {
+    var statusEl = document.getElementById('paymentStatus');
+    statusEl.style.color = '';
+    statusEl.textContent = 'جاري الشحن...';
+    var pack = document.getElementById('f_topupPack').value;
+    api('/admin/api/clients/' + currentEditId + '/topup', { method: 'POST', body: JSON.stringify({ pack: pack }) })
+      .then(function (res) {
+        statusEl.style.color = 'var(--ok)';
+        statusEl.textContent = '⚡ انضاف ' + res.added + ' رسالة — الرصيد: ' + res.balance;
+        var creditsEl = document.getElementById('topupStatus');
+        if (creditsEl) creditsEl.textContent = '⚡ رصيد الشحن الحالي: ' + res.balance + ' رسالة';
+        loadClients();
+      })
+      .catch(function (err) {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = err.message;
+      });
+  });
+
+  // ---------- تجربة محادثة ----------
+  function appendPreviewMsg(role, text) {
+    var log = document.getElementById('previewChatLog');
+    var div = document.createElement('div');
+    div.className = 'preview-msg preview-msg-' + role;
+    div.textContent = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function sendPreviewMessage() {
+    var input = document.getElementById('previewChatInput');
+    var statusEl = document.getElementById('previewChatStatus');
+    var text = input.value.trim();
+    if (!text) return;
+
+    appendPreviewMsg('user', text);
+    input.value = '';
+    input.disabled = true;
+    statusEl.textContent = 'البوت عم يكتب...';
+
+    api('/admin/api/clients/' + currentEditId + '/preview-chat', {
+      method: 'POST',
+      body: JSON.stringify({ message: text }),
+    }).then(function (res) {
+      appendPreviewMsg('bot', res.reply);
+      statusEl.textContent = '';
+    }).catch(function (err) {
+      appendPreviewMsg('error', err.message);
+      statusEl.textContent = '';
+    }).finally(function () {
+      input.disabled = false;
+      input.focus();
+    });
+  }
+
+  document.getElementById('previewChatSendBtn').addEventListener('click', sendPreviewMessage);
+  document.getElementById('previewChatInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') sendPreviewMessage();
+  });
+
+  document.getElementById('previewChatResetBtn').addEventListener('click', function () {
+    var statusEl = document.getElementById('previewChatStatus');
+    api('/admin/api/clients/' + currentEditId + '/preview-chat/reset', { method: 'POST' }).then(function () {
+      document.getElementById('previewChatLog').innerHTML = '';
+      statusEl.style.color = 'var(--ok)';
+      statusEl.textContent = 'بلشنا محادثة جديدة ✓';
+    }).catch(function (err) {
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = err.message;
+    });
+  });
+
+  document.getElementById('saveKnowledgeBtn').addEventListener('click', function () {
+    var errorEl = document.getElementById('editError');
+    errorEl.textContent = '';
+    var content = document.getElementById('f_knowledge').value;
+    api('/admin/api/clients/' + currentEditId + '/knowledge', { method: 'PUT', body: JSON.stringify({ content: content }) })
+      .then(function () {
+        loadClients();
+        errorEl.style.color = 'green';
+        errorEl.textContent = 'انحفظت ✓';
+      }).catch(function (err) {
+        errorEl.style.color = '';
+        errorEl.textContent = err.message;
+      });
+  });
+
+  // ---------- خطوات إعداد واتساب (checklist) ----------
+  function renderChecklist(cfg) {
+    var cl = checklistOf(cfg);
+    var container = document.getElementById('checklistItems');
+    container.innerHTML = '';
+    ONBOARDING_STEPS.forEach(function (step) {
+      var row = document.createElement('div');
+      row.className = 'checklist-item';
+      var hintHtml = step.hint ? '<div class="ci-hint">' + escapeHtml(step.hint) + '</div>' : '';
+      row.innerHTML =
+        '<input type="checkbox" id="cl_' + step.id + '"' + (cl[step.id] ? ' checked' : '') + '>' +
+        '<div><div class="ci-label">' + escapeHtml(step.label) + '</div>' + hintHtml + '</div>';
+      container.appendChild(row);
+      document.getElementById('cl_' + step.id).addEventListener('change', function (e) {
+        toggleChecklistStep(step.id, e.target.checked);
+      });
+    });
+    updateChecklistProgress(cfg);
+  }
+
+  function updateChecklistProgress(cfg) {
+    var done = checklistDoneCount(cfg);
+    document.getElementById('checklistProgress').textContent =
+      done + ' / ' + ONBOARDING_STEPS.length + ' خطوات مكتملة';
+  }
+
+  var checklistSaveQueue = Promise.resolve(); // يسلسل طلبات الحفظ تفاديًا لتضارب اتنين متزامنين
+
+  function toggleChecklistStep(stepId, checked) {
+    // نعدّل النسخة يلي بالذاكرة فورًا (لا GET قبل PUT) — لو اتنين تشييك صاروا بسرعة، كل
+    // طلب PUT بيبعت الحالة الكاملة الصحيحة لحظة إرساله، بدل ما يعتمد على قراءة قديمة من السيرفر.
+    currentEditConfig.onboardingChecklist = Object.assign({}, checklistOf(currentEditConfig));
+    currentEditConfig.onboardingChecklist[stepId] = checked;
+    updateChecklistProgress(currentEditConfig);
+
+    var payload = JSON.stringify(currentEditConfig);
+    var editId = currentEditId;
+    checklistSaveQueue = checklistSaveQueue
+      .then(function () {
+        return api('/admin/api/clients/' + editId, { method: 'PUT', body: payload });
+      })
+      .then(function () {
+        loadClients();
+      })
+      .catch(function (err) {
+        document.getElementById('editError').textContent = err.message;
+      });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (tab) {
+    tab.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) { t.classList.remove('active'); });
+      Array.prototype.forEach.call(document.querySelectorAll('.tab-panel'), function (p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.querySelector('[data-panel="' + tab.getAttribute('data-tab') + '"]').classList.add('active');
+    });
+  });
+
+  // ---------- إضافة عميل ----------
+  var INTAKE_FIELD_IDS = [
+    'a_companyName', 'a_escalationPhone', 'a_notifyWhatsapp', 'a_contactEmail', 'a_expiresAt',
+    'a_tier', 'a_referredByClientId',
+    'a_knowledgeSourceLabel', 'a_about', 'a_categories', 'a_brands', 'a_hours', 'a_payment',
+    'a_branches', 'a_delivery', 'a_warranty', 'a_products', 'a_extra',
+  ];
+
+  // بيحوّل خانات النموذج المنظّمة لصيغة knowledge.md موحّدة — نفس البنية المستخدمة يدويًا
+  // بكل عميل لغاية هلق (عن المحل / فئات / ماركات / دوام / فروع / توصيل / دفع / ضمان / منتجات).
+  // كل قسم فاضي بينحذف تلقائيًا، ما بيتحقن "## دوام العمل" فاضي بدون فايدة.
+  function buildKnowledgeMarkdown() {
+    var name = document.getElementById('a_companyName').value.trim();
+    var lines = ['# قاعدة معرفة — ' + (name || 'عميل جديد'), ''];
+
+    function section(title, value) {
+      if (!value || !value.trim()) return;
+      lines.push('## ' + title, value.trim(), '');
+    }
+
+    function listSection(title, value) {
+      if (!value || !value.trim()) return;
+      lines.push('## ' + title);
+      value.trim().split('\n').forEach(function (line) {
+        if (line.trim()) lines.push('- ' + line.trim());
+      });
+      lines.push('');
+    }
+
+    section('عن المحل', document.getElementById('a_about').value);
+    listSection('الفئات/الخدمات الرئيسية', document.getElementById('a_categories').value);
+
+    var brands = document.getElementById('a_brands').value.trim();
+    if (brands) lines.push('## الماركات', brands, '');
+
+    var hours = document.getElementById('a_hours').value.trim();
+    var payment = document.getElementById('a_payment').value.trim();
+    if (hours) lines.push('## دوام العمل', hours, '');
+    if (payment) lines.push('## الدفع', payment, '');
+
+    listSection('الفروع', document.getElementById('a_branches').value);
+    section('التوصيل', document.getElementById('a_delivery').value);
+    section('الضمان/الاسترجاع', document.getElementById('a_warranty').value);
+    listSection('منتجات/خدمات مختارة', document.getElementById('a_products').value);
+    section('ملاحظات إضافية', document.getElementById('a_extra').value);
+
+    lines.push(
+      '## ⚠️ ملاحظة',
+      'هاي معلومات مختارة، مش كاتالوج كامل. لو الزبون سأل عن منتج/سعر مش مذكور هون، اعتذر وما تخترع رقم — وجّهه للتواصل المباشر.'
+    );
+
+    return lines.join('\n');
+  }
+
+  document.getElementById('addClientBtn').addEventListener('click', function () {
+    document.getElementById('addError').textContent = '';
+    INTAKE_FIELD_IDS.forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('addOverlay').classList.add('open');
+  });
+  document.getElementById('closeAddBtn').addEventListener('click', function () {
+    document.getElementById('addOverlay').classList.remove('open');
+  });
+  document.getElementById('createClientBtn').addEventListener('click', function () {
+    var errorEl = document.getElementById('addError');
+    errorEl.textContent = '';
+    var payload = {
+      companyName: document.getElementById('a_companyName').value,
+      escalationPhone: document.getElementById('a_escalationPhone').value,
+      notifyWhatsapp: document.getElementById('a_notifyWhatsapp').value,
+      contactEmail: document.getElementById('a_contactEmail').value,
+      expiresAt: document.getElementById('a_expiresAt').value || null,
+      tier: document.getElementById('a_tier').value || null,
+      referredByClientId: document.getElementById('a_referredByClientId').value.trim() || null,
+      knowledgeSourceLabel: document.getElementById('a_knowledgeSourceLabel').value,
+      knowledgeText: buildKnowledgeMarkdown(),
+    };
+    api('/admin/api/clients', { method: 'POST', body: JSON.stringify(payload) })
+      .then(function () {
+        document.getElementById('addOverlay').classList.remove('open');
+        loadClients();
+      }).catch(function (err) {
+        errorEl.textContent = err.message;
+      });
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', function () {
+    api('/admin/logout', { method: 'POST' }).then(function () { window.location.href = '/admin/login'; });
+  });
+
+  // ---------- صندوق التصعيدات المُجمّع ----------
+  var currentView = 'clients';
+  var escalationsCache = [];
+
+  function formatDate(isoStr) {
+    if (!isoStr) return '-';
+    try {
+      var d = new Date(isoStr);
+      return d.toLocaleDateString('ar') + ' ' + d.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+    } catch { return isoStr; }
+  }
+
+  function loadEscalations() {
+    api('/admin/api/escalations').then(function (data) {
+      escalationsCache = data.escalations || [];
+      var unhandledCount = escalationsCache.filter(function (e) { return !e.handled; }).length;
+      var btn = document.getElementById('escalationsToggleBtn');
+      btn.textContent = unhandledCount > 0 ? '📥 صندوق التصعيدات (' + unhandledCount + ')' : '📥 صندوق التصعيدات';
+      if (currentView === 'escalations') {
+        renderEscalations();
+      }
+    }).catch(function (err) {
+      console.error('فشل تحميل التصعيدات:', err);
+    });
+  }
+
+  function renderEscalations() {
+    var body = document.getElementById('escalationsBody');
+    var empty = document.getElementById('escalationsEmpty');
+    var showHandled = document.getElementById('showHandledCheckbox').checked;
+    body.innerHTML = '';
+
+    var filtered = escalationsCache.filter(function (e) {
+      return showHandled || !e.handled;
+    });
+
+    if (!filtered.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    filtered.forEach(function (item) {
+      var tr = document.createElement('tr');
+      var channelBadge = item.channel === 'whatsapp' ? 'واتساب' : 'ودجت الموقع';
+      var statusBadge = item.handled
+        ? '<span class="badge badge-active">معالج ✓</span>'
+        : '<span class="badge badge-expiring">بانتظار المعالجة</span>';
+      var actionBtn = item.handled
+        ? '<button class="btn-secondary" data-unhandle-client="' + escapeHtml(item.clientId) + '" data-unhandle-id="' + escapeHtml(item.id) + '">↩️ إلغاء التعليم</button>'
+        : '<button class="btn-primary" data-handle-client="' + escapeHtml(item.clientId) + '" data-handle-id="' + escapeHtml(item.id) + '">✓ تعليم كمعالج</button>';
+
+      tr.innerHTML =
+        '<td><strong>' + escapeHtml(item.displayName) + '</strong><div class="muted">' + escapeHtml(item.clientId) + '</div></td>' +
+        '<td>' + channelBadge + '</td>' +
+        '<td><code dir="ltr">' + escapeHtml(item.endUserId) + '</code></td>' +
+        '<td>' + escapeHtml(item.lastMessage || '-') + '</td>' +
+        '<td>' + formatDate(item.at) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td>' + actionBtn + '</td>';
+      body.appendChild(tr);
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-handle-client]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var cId = btn.getAttribute('data-handle-client');
+        var eId = btn.getAttribute('data-handle-id');
+        api('/admin/api/escalations/' + cId + '/' + eId + '/handle', { method: 'POST' }).then(function () {
+          loadEscalations();
+        });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-unhandle-client]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var cId = btn.getAttribute('data-unhandle-client');
+        var eId = btn.getAttribute('data-unhandle-id');
+        api('/admin/api/escalations/' + cId + '/' + eId + '/unhandle', { method: 'POST' }).then(function () {
+          loadEscalations();
+        });
+      });
+    });
+  }
+
+  // بدّلنا التبديل الثنائي (عميل/تصعيدات) لدالة عامة تدعم أي عدد عروض — إضافة "تحليلات"
+  // ما لازم تكسر منطق التبديل الموجود أصلاً.
+  var VIEWS = {
+    clients: { view: document.getElementById('clientsView'), btn: null },
+    escalations: { view: document.getElementById('escalationsView'), btn: document.getElementById('escalationsToggleBtn') },
+    analytics: { view: document.getElementById('analyticsView'), btn: document.getElementById('analyticsToggleBtn') },
+  };
+
+  function switchView(name) {
+    currentView = name;
+    Object.keys(VIEWS).forEach(function (key) {
+      VIEWS[key].view.style.display = key === name ? 'block' : 'none';
+      if (VIEWS[key].btn) {
+        VIEWS[key].btn.classList.toggle('btn-primary', key === name);
+        VIEWS[key].btn.classList.toggle('btn-secondary', key !== name);
+      }
+    });
+    if (name === 'escalations') renderEscalations();
+    if (name === 'analytics') renderAnalytics();
+  }
+
+  document.getElementById('escalationsToggleBtn').addEventListener('click', function () {
+    switchView(currentView === 'escalations' ? 'clients' : 'escalations');
+  });
+
+  document.getElementById('analyticsToggleBtn').addEventListener('click', function () {
+    switchView(currentView === 'analytics' ? 'clients' : 'analytics');
+  });
+
+  document.getElementById('showHandledCheckbox').addEventListener('change', function () {
+    renderEscalations();
+  });
+
+  // ---------- تحليلات العملاء ----------
+  var analyticsCache = [];
+
+  function loadAnalytics() {
+    return api('/admin/api/analytics').then(function (data) {
+      analyticsCache = data.analytics || [];
+    }).catch(function (err) {
+      console.error('فشل تحميل التحليلات:', err);
+    });
+  }
+
+  function renderAnalytics() {
+    var body = document.getElementById('analyticsBody');
+    var empty = document.getElementById('analyticsEmpty');
+    body.innerHTML = '';
+
+    if (!analyticsCache.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    analyticsCache.forEach(function (c) {
+      var tr = document.createElement('tr');
+      var escalationsCell = c.totalEscalations
+        ? c.totalEscalations + ' (' + c.unhandledEscalations + ')'
+        : '0';
+      tr.innerHTML =
+        '<td><strong>' + escapeHtml(c.displayName) + '</strong><div class="muted">' + escapeHtml(c.clientId) + '</div></td>' +
+        '<td>' + (c.status === 'active' ? '<span class="badge badge-active">فعّال</span>' : '<span class="badge badge-disabled">موقوف</span>') + '</td>' +
+        '<td>' + c.uniqueCustomers + '</td>' +
+        '<td>' + c.activeLast7Days + '</td>' +
+        '<td>' + c.totalOrders + '</td>' +
+        '<td>' + c.totalAppointments + '</td>' +
+        '<td>' + escalationsCell + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  // ===== إحصائيات يومية + تقدير تكلفة DeepSeek (رسم أعمدة SVG-free بـdivs) =====
+  function loadStats() {
+    return api('/admin/api/stats').then(function (data) {
+      var chart = document.getElementById('statsChart');
+      var costLine = document.getElementById('statsCostLine');
+      if (!chart) return;
+      var days = data.days || [];
+
+      var max = 1;
+      days.forEach(function (d) { max = Math.max(max, d.llmCalls, d.cacheHits, d.offHours); });
+
+      chart.innerHTML = '';
+      days.forEach(function (d) {
+        var col = document.createElement('div');
+        col.style.cssText = 'flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:2px; height:100%;';
+        var mkBar = function (v, color) {
+          var bar = document.createElement('div');
+          bar.style.cssText = 'width:70%; background:' + color + '; border-radius:3px 3px 0 0; min-height:' + (v > 0 ? 3 : 0) + 'px;';
+          bar.style.height = Math.round((v / max) * 100) + '%';
+          bar.title = d.date.slice(5) + ' — LLM: ' + d.llmCalls + ', كاش: ' + d.cacheHits + ', خارج دوام: ' + d.offHours +
+            ', رسائل: ' + d.messages + '، تكلفة ≈ $' + d.costUsd.toFixed(4);
+          return bar;
+        };
+        var stack = document.createElement('div');
+        stack.style.cssText = 'display:flex; flex-direction:column-reverse; justify-content:flex-end; width:100%; height:100%; gap:1px;';
+        stack.appendChild(mkBar(d.llmCalls, '#0d9488'));
+        stack.appendChild(mkBar(d.cacheHits, '#94a3b8'));
+        stack.appendChild(mkBar(d.offHours, '#f59e0b'));
+
+        var label = document.createElement('div');
+        label.style.cssText = 'font-size:0.6rem; color:var(--muted,#6b7280); white-space:nowrap;';
+        label.textContent = d.date.slice(8);
+
+        col.appendChild(stack);
+        col.appendChild(label);
+        chart.appendChild(col);
+      });
+
+      if (costLine) {
+        costLine.innerHTML = '💰 تكلفة DeepSeek التقديرية هالشهر: <strong>$' +
+          Number(data.monthToDateCostUsd || 0).toFixed(2) + '</strong>';
+      }
+    }).catch(function () { /* صامت — الإحصائيات مش حرجة */ });
+  }
+
+  loadClients();
+  loadEscalations();
+  loadAnalytics();
+  loadStats();
+  setInterval(loadStats, 60 * 1000);
+
+  // جسر مؤقت من صفحة قائمة العملاء الجديدة (/admin) — لسا هاي الصفحة القديمة هي يلي فيها
+  // التعديل/المعرفة/الإعداد/المعاينة، لحد ما نعيد بناء الباقي. بيانات الرابط (query params)
+  // بتفتح مباشرة نفس الحالة بدل ما يدوّر المستخدم يدويًا.
+  (function bridgeFromNewClientsPage() {
+    var params = new URLSearchParams(location.search);
+    var editId = params.get('edit');
+    var view = params.get('view');
+    if (editId) {
+      // لازم بعد ما loadClients() تخلص (clientsCache وaddClientBtn جاهزين) — بسيط: مهلة قصيرة
+      setTimeout(function () { openEdit(editId); }, 300);
+    } else if (params.get('add') === '1') {
+      setTimeout(function () { document.getElementById('addClientBtn').click(); }, 100);
+    } else if (view === 'escalations' || view === 'analytics') {
+      setTimeout(function () { switchView(view); }, 100);
+    }
+  })();
+</script>
+</body>
+</html>

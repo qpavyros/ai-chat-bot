@@ -67,6 +67,17 @@ router.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-dashboard.html"));
 });
 
+// النسخة القديمة — لسا فيها التعديل/المعرفة/الإعداد/المعاينة لحد ما نعيد بناء الباقي.
+// صفحة "إدارة العملاء" الجديدة (/admin) بترسل هون عبر روابط (?edit=/?add=1/?view=) بدل ما
+// تكرر كل هالمنطق.
+router.get("/admin/legacy", (req, res) => {
+  const cookies = parseCookies(req);
+  if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
+    return res.redirect("/admin/login");
+  }
+  res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-legacy.html"));
+});
+
 // ---------- مصادقة ----------
 
 router.post("/admin/login", express.json(), (req, res) => {
