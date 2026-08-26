@@ -95,8 +95,9 @@ router.post("/signup/start", requireUserAuth, asyncHandler(async (req, res) => {
   if (!escalationPhone || String(escalationPhone).trim().length < 6) {
     return res.status(400).json({ error: { code: "invalid_escalation_phone", message: "رقم تواصل للزبائن مطلوب" } });
   }
-  if (!isValidUrl(websiteUrl)) {
-    return res.status(400).json({ error: { code: "invalid_website_url", message: "رابط موقع صحيح مطلوب (http/https)" } });
+  const trimmedWebsiteUrl = websiteUrl ? String(websiteUrl).trim() : "";
+  if (trimmedWebsiteUrl && !isValidUrl(trimmedWebsiteUrl)) {
+    return res.status(400).json({ error: { code: "invalid_website_url", message: "رابط الموقع لازم يبلّش بـhttp:// أو https://" } });
   }
   if (acceptedTerms !== true) {
     return res.status(400).json({ error: { code: "terms_not_accepted", message: "لازم توافق على الشروط" } });
@@ -114,7 +115,7 @@ router.post("/signup/start", requireUserAuth, asyncHandler(async (req, res) => {
   const fraudCheck = await trialFraudGuard.reserveSignupFingerprints(req.uid, {
     notifyWhatsapp,
     escalationPhone,
-    websiteUrl,
+    websiteUrl: trimmedWebsiteUrl,
     ip,
   });
   if (fraudCheck.blocked) {
@@ -127,7 +128,7 @@ router.post("/signup/start", requireUserAuth, asyncHandler(async (req, res) => {
     contactEmail: profile.email,
     notifyWhatsapp: String(notifyWhatsapp).trim(),
     escalationPhone: String(escalationPhone).trim(),
-    websiteUrl: String(websiteUrl).trim(),
+    websiteUrl: trimmedWebsiteUrl,
   });
 
   await userAccounts.setOnboardingState(req.uid, { pendingId: pending.pendingId, currentStep: "knowledge" });
@@ -199,6 +200,9 @@ router.post("/signup/knowledge", ...requireOwnedPending(), upload.single("file")
       sourceType = detected;
       sourceValue = req.file.originalname;
     } else if (req.body?.source === "website") {
+      if (!pending.websiteUrl) {
+        return res.status(400).json({ error: { code: "no_website_url", message: "ما حطيت رابط موقع بخطوة التسجيل — ارفع ملف بدل هيك" } });
+      }
       content = await ingest.ingestWebsite(pending.websiteUrl, { fetch: urlGuard.safeGet });
       sourceType = "website";
       sourceValue = pending.websiteUrl;

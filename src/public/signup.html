@@ -68,12 +68,12 @@
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-on-surface" for="websiteUrl">رابط موقعك <span class="text-error">*</span></label>
+          <label class="text-sm font-medium text-on-surface" for="websiteUrl">رابط موقعك <span class="text-on-surface-variant font-normal">(اختياري)</span></label>
           <div class="relative flex items-center">
             <span class="material-symbols-outlined absolute right-3 text-outline">language</span>
             <input class="w-full bg-surface text-on-surface rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary p-3 pr-10 text-left transition-colors" dir="ltr" id="websiteUrl" name="websiteUrl" autocomplete="url" placeholder="https://your-company.com" type="url" />
           </div>
-          <p class="field-error" data-error-for="websiteUrl">رابط موقع صحيح مطلوب</p>
+          <p class="field-error" data-error-for="websiteUrl">إذا حطيت رابط، لازم يبلّش بـhttp:// أو https://</p>
         </div>
 
         <div class="flex flex-col gap-2">
@@ -174,7 +174,7 @@
     if (data.companyName.length < 2) missing.push("companyName");
     if (data.notifyWhatsapp.length < 6) missing.push("notifyWhatsapp");
     if (data.escalationPhone.length < 6) missing.push("escalationPhone");
-    if (!/^https?:\/\//.test(data.websiteUrl)) missing.push("websiteUrl");
+    if (data.websiteUrl && !/^https?:\/\//.test(data.websiteUrl)) missing.push("websiteUrl");
 
     if (missing.length) {
       missing.forEach(showFieldError);

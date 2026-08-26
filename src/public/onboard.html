@@ -204,6 +204,9 @@
       if (res.status !== 200) { showState("error-state"); return; }
       pendingState.websiteUrl = res.body.websiteUrl;
       document.getElementById("website-url-display").textContent = res.body.websiteUrl;
+      if (!res.body.websiteUrl) {
+        document.querySelector('.upload-tab[data-tab="website"]').style.display = "none";
+      }
 
       if (res.body.completed) {
         pendingState.clientId = res.body.clientId;
