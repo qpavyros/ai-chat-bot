@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /auth
+Disallow: /public/onboard
+Disallow: /dashboard
+Disallow: /admin
+Allow: /
+
+Sitemap: https://app.abiad.systems/sitemap.xml

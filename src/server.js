@@ -38,6 +38,9 @@ app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "public", "p
 app.get("/tutorial", (req, res) => res.sendFile(path.join(__dirname, "public", "tutorial.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "public", "terms.html")));
 app.get("/cookies", (req, res) => res.sendFile(path.join(__dirname, "public", "cookies.html")));
+// robots.txt وsitemap.xml لازم يكونوا عالجذر تحديدًا — مش تحت /public — حتى تلاقيهم محركات البحث.
+app.get("/robots.txt", (req, res) => res.sendFile(path.join(__dirname, "public", "robots.txt")));
+app.get("/sitemap.xml", (req, res) => res.sendFile(path.join(__dirname, "public", "sitemap.xml")));
 
 // الودجت بيشتغل من دومين موقع العميل، مو من دومين هالسيرفر، فلازم CORS مفتوح على /api تحديدًا.
 // وسّعنا الهيدرز/الميثودز عن النسخة القديمة حتى تستوعب Authorization (مفاتيح pk_/sk_) ومسارات
@@ -67,6 +70,15 @@ app.use("/widget", express.static(path.join(__dirname, "widget")));
 
 // صفحات التسجيل الذاتي المُستضافة (الـ/docs القديم أُزيل — كان يعرض خططا داخلية للعامة)
 app.use("/public", express.static(path.join(__dirname, "public")));
+
+// 404 مخصّص — بعد كل الراوتات والملفات الثابتة، قبل معالج الأخطاء. لازم يرجّع status 404
+// فعليًا (مش 200) حتى لا يتفسّر كـsoft-404 من محركات البحث. الـAPI بيرجعله JSON مو صفحة.
+app.use((req, res) => {
+  if (req.path.startsWith("/api") || req.path.startsWith("/webhook")) {
+    return res.status(404).json({ error: { code: "not_found", message: "الرابط غير موجود" } });
+  }
+  res.status(404).sendFile(path.join(__dirname, "public", "404.html"));
+});
 
 // معالج أخطاء مركزي — أخطاء الـasync بتوصل هون عبر asyncHandler (راجع middleware/asyncHandler.js).
 // تفاصيل الخطأ الحقيقية بتنروح للسجل بس — err.message الخام ممكن يسرّب مسارات سيرفر للعميل.

@@ -25,7 +25,42 @@
   @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .animate-slide-up { animation: slideUp 0.6s ease-out forwards; }
   @media (prefers-reduced-motion: reduce) { .animate-float, .animate-slide-up, .animate-ping, .animate-bounce { animation: none !important; opacity: 1 !important; } }
+  /* مسافة تحت المحتوى على الموبايل حتى ما يخبّي الـsticky CTA آخر عنصر بالصفحة */
+  @media (max-width: 767px) { body { padding-bottom: 76px; } }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "هل بحتاج بطاقة ائتمانية للتجربة المجانية؟",
+      "acceptedAnswer": { "@type": "Answer", "text": "لأ. عندك تجربة مجانية 7 أيام على كل الباقات بدون أي بطاقة ائتمانية." }
+    },
+    {
+      "@type": "Question",
+      "name": "كيف بيتعلم البوت عن شركتي ومنتجاتي؟",
+      "acceptedAnswer": { "@type": "Answer", "text": "برفع ملف PDF أو Excel/CSV فيه منتجاتك وأسعارك، أو بإعطائه رابط موقعك مباشرة — بياخد المعلومات منه تلقائيًا." }
+    },
+    {
+      "@type": "Question",
+      "name": "البوت بيرد باللهجة اللبنانية فعلاً؟",
+      "acceptedAnswer": { "@type": "Answer", "text": "إيه. البوت بيقدر يرد بعربي فصيح أو باللهجة اللبنانية، بأسلوب مهذب ومطابق لهوية شركتك." }
+    },
+    {
+      "@type": "Question",
+      "name": "شو بيصير إذا الزبون بده يحكي مع إنسان مباشرة؟",
+      "acceptedAnswer": { "@type": "Answer", "text": "البوت بيصعّد المحادثة فورًا ويبعتلك تنبيه واتساب حتى تتابع مع الزبون بنفسك." }
+    },
+    {
+      "@type": "Question",
+      "name": "فيني ألغي أو أوقف البوت بأي وقت؟",
+      "acceptedAnswer": { "@type": "Answer", "text": "إيه، فيك توقف البوت أو تحذفه نهائيًا بأي وقت من صفحة إدارة البوت (بمهلة استرجاع 30 يوم قبل الحذف الفعلي)." }
+    }
+  ]
+}
+</script>
 </head>
 <body class="bg-background text-on-background font-body-md antialiased overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
 
@@ -42,6 +77,14 @@
   </div>
 </div>
 
+<!-- Sticky mobile CTA — موبايل بس، بتترفع فوق شريط الكوكيز لو ظاهر حتى ما تتغطى -->
+<div class="fixed bottom-0 left-0 w-full z-40 md:hidden bg-surface border-t border-outline-variant shadow-lg p-3 transition-[bottom] duration-300" id="sticky-mobile-cta">
+  <a href="/public/signup" class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-headline-sm font-bold shadow-md">
+    جهّز بوتك مجاناً
+    <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+  </a>
+</div>
+
 <!-- Header -->
 <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md shadow-sm border-b border-outline-variant w-full">
   <div class="flex flex-row-reverse justify-between items-center w-full px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto h-20">
@@ -53,6 +96,7 @@
       <a class="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md" href="/">الرئيسية</a>
       <a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#pricing">الأسعار</a>
       <a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#features">المزايا</a>
+      <a class="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#faq">الأسئلة الشائعة</a>
     </nav>
     <div class="flex flex-row-reverse items-center gap-3">
       <a class="hidden sm:inline-flex items-center justify-center px-4 py-2 rounded-lg border border-outline text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors" href="/auth">تسجيل الدخول</a>
@@ -78,7 +122,7 @@
           </div>
           <h1 class="font-display-lg text-4xl md:text-5xl lg:text-6xl font-bold text-on-surface leading-tight mb-6">
             خلّي بوت ذكي يرد على زبائنك على <span class="text-primary relative inline-block">مدار الساعة
-              <svg class="absolute -bottom-2 right-0 w-full text-secondary" preserveAspectRatio="none" viewBox="0 0 100 10">
+              <svg class="absolute -bottom-2 right-0 w-full text-secondary" aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 100 10">
                 <path d="M0,5 Q50,10 100,5" fill="transparent" stroke="currentColor" stroke-width="2"></path>
               </svg>
             </span>
@@ -104,7 +148,7 @@
             لا حاجة لبطاقة ائتمانية. تجربة مجانية ٧ أيام.
           </p>
         </div>
-        <div class="flex-1 relative w-full max-w-lg lg:max-w-none animate-slide-up" style="animation-delay: 0.2s;">
+        <div class="flex-1 relative w-full max-w-lg lg:max-w-none animate-slide-up" style="animation-delay: 0.2s;" aria-hidden="true">
           <div class="relative rounded-[2rem] bg-white shadow-2xl border-4 border-surface-container-highest p-4 w-full aspect-[9/16] max-h-[600px] overflow-hidden animate-float">
             <div class="flex items-center gap-3 border-b border-outline-variant pb-3 mb-4">
               <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
@@ -292,6 +336,53 @@
     </div>
   </section>
 
+  <!-- FAQ -->
+  <section class="py-24 bg-surface" id="faq">
+    <div class="max-w-3xl mx-auto px-margin-mobile md:px-margin-desktop">
+      <div class="text-center mb-16">
+        <h2 class="font-headline-lg text-3xl md:text-4xl font-bold text-on-surface mb-4">أسئلة شائعة</h2>
+        <p class="font-body-md text-on-surface-variant max-w-xl mx-auto">أهم الأسئلة يلي بتوصلنا قبل ما حدا يبلّش.</p>
+      </div>
+      <div class="flex flex-col gap-4">
+        <details class="group bg-surface-container-low rounded-2xl border border-outline-variant p-6 open:shadow-sm transition-shadow">
+          <summary class="flex items-center justify-between cursor-pointer list-none font-headline-sm font-bold text-on-surface">
+            هل بحتاج بطاقة ائتمانية للتجربة المجانية؟
+            <span class="material-symbols-outlined text-primary transition-transform group-open:rotate-45">add</span>
+          </summary>
+          <p class="mt-4 font-body-md text-on-surface-variant">لأ. عندك تجربة مجانية 7 أيام على كل الباقات بدون أي بطاقة ائتمانية.</p>
+        </details>
+        <details class="group bg-surface-container-low rounded-2xl border border-outline-variant p-6 open:shadow-sm transition-shadow">
+          <summary class="flex items-center justify-between cursor-pointer list-none font-headline-sm font-bold text-on-surface">
+            كيف بيتعلم البوت عن شركتي ومنتجاتي؟
+            <span class="material-symbols-outlined text-primary transition-transform group-open:rotate-45">add</span>
+          </summary>
+          <p class="mt-4 font-body-md text-on-surface-variant">برفع ملف PDF أو Excel/CSV فيه منتجاتك وأسعارك، أو بإعطائه رابط موقعك مباشرة — بياخد المعلومات منه تلقائيًا.</p>
+        </details>
+        <details class="group bg-surface-container-low rounded-2xl border border-outline-variant p-6 open:shadow-sm transition-shadow">
+          <summary class="flex items-center justify-between cursor-pointer list-none font-headline-sm font-bold text-on-surface">
+            البوت بيرد باللهجة اللبنانية فعلاً؟
+            <span class="material-symbols-outlined text-primary transition-transform group-open:rotate-45">add</span>
+          </summary>
+          <p class="mt-4 font-body-md text-on-surface-variant">إيه. البوت بيقدر يرد بعربي فصيح أو باللهجة اللبنانية، بأسلوب مهذب ومطابق لهوية شركتك.</p>
+        </details>
+        <details class="group bg-surface-container-low rounded-2xl border border-outline-variant p-6 open:shadow-sm transition-shadow">
+          <summary class="flex items-center justify-between cursor-pointer list-none font-headline-sm font-bold text-on-surface">
+            شو بيصير إذا الزبون بده يحكي مع إنسان مباشرة؟
+            <span class="material-symbols-outlined text-primary transition-transform group-open:rotate-45">add</span>
+          </summary>
+          <p class="mt-4 font-body-md text-on-surface-variant">البوت بيصعّد المحادثة فورًا ويبعتلك تنبيه واتساب حتى تتابع مع الزبون بنفسك.</p>
+        </details>
+        <details class="group bg-surface-container-low rounded-2xl border border-outline-variant p-6 open:shadow-sm transition-shadow">
+          <summary class="flex items-center justify-between cursor-pointer list-none font-headline-sm font-bold text-on-surface">
+            فيني ألغي أو أوقف البوت بأي وقت؟
+            <span class="material-symbols-outlined text-primary transition-transform group-open:rotate-45">add</span>
+          </summary>
+          <p class="mt-4 font-body-md text-on-surface-variant">إيه، فيك توقف البوت أو تحذفه نهائيًا بأي وقت من صفحة إدارة البوت (بمهلة استرجاع 30 يوم قبل الحذف الفعلي).</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="py-24 relative overflow-hidden bg-primary text-on-primary">
     <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 20% 50%, #ffffff 0%, transparent 50%), radial-gradient(circle at 80% 80%, #ffffff 0%, transparent 50%);"></div>
@@ -328,16 +419,34 @@
 (function () {
   var STORAGE_KEY = "cookie-consent";
   var banner = document.getElementById("cookie-banner");
+  var stickyCta = document.getElementById("sticky-mobile-cta");
+
+  function liftStickyCta() {
+    if (window.innerWidth >= 768) return; // الـsticky CTA أصلاً مخفي على الديسكتوب (md:hidden)
+    stickyCta.style.bottom = banner.offsetHeight + "px";
+  }
+  function resetStickyCta() {
+    stickyCta.style.bottom = "0px";
+  }
+
   try {
     if (!localStorage.getItem(STORAGE_KEY)) {
-      setTimeout(function () { banner.classList.remove("translate-y-full"); }, 500);
+      setTimeout(function () {
+        banner.classList.remove("translate-y-full");
+        liftStickyCta();
+      }, 500);
     }
   } catch (e) {
     banner.classList.remove("translate-y-full");
+    liftStickyCta();
   }
   document.getElementById("cookie-accept").addEventListener("click", function () {
     try { localStorage.setItem(STORAGE_KEY, "accepted"); } catch (e) {}
     banner.classList.add("translate-y-full");
+    resetStickyCta();
+  });
+  window.addEventListener("resize", function () {
+    if (!banner.classList.contains("translate-y-full")) liftStickyCta();
   });
 })();
 </script>
@@ -420,4 +529,3 @@
 
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
