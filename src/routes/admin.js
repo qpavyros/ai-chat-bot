@@ -67,15 +67,25 @@ router.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-dashboard.html"));
 });
 
-// النسخة القديمة — لسا فيها التعديل/المعرفة/الإعداد/المعاينة لحد ما نعيد بناء الباقي.
-// صفحة "إدارة العملاء" الجديدة (/admin) بترسل هون عبر روابط (?edit=/?add=1/?view=) بدل ما
-// تكرر كل هالمنطق.
+// النسخة القديمة — كانت فيها التعديل/المعرفة/الإعداد/المعاينة قبل ما تنبني صفحة العميل
+// المستقلة تحت. باقية بس كـfallback مؤقت (إضافة عميل جديد، صندوق التصعيدات، التحليلات)
+// لحد ما تنبنى هني كمان كصفحات مستقلة.
 router.get("/admin/legacy", (req, res) => {
   const cookies = parseCookies(req);
   if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
     return res.redirect("/admin/login");
   }
   res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-legacy.html"));
+});
+
+// صفحة عميل واحد — رابط حقيقي بمعرّف العميل بالمسار (مش مودال). الـid بينقرا من الرابط
+// بالـJS نفسه (زي bot-manage.html بلوحة الزبون)، مش هون — الملف نفسه ثابت لأي عميل.
+router.get("/admin/client/:id", (req, res) => {
+  const cookies = parseCookies(req);
+  if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
+    return res.redirect("/admin/login");
+  }
+  res.sendFile(path.join(__dirname, "..", "admin-pages", "admin-client-detail.html"));
 });
 
 // ---------- مصادقة ----------

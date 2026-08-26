@@ -162,11 +162,18 @@
       ? '<span class="text-on-surface-variant">بدون تاريخ</span>'
       : (c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("ar") : '<span class="text-on-surface-variant">بدون تاريخ</span>');
 
+    var referralHtml = "";
+    if (c.pendingReferralRewards && c.pendingReferralRewards.length) {
+      referralHtml = '<div class="flex flex-wrap gap-1 mt-1">' + c.pendingReferralRewards.map(function (r) {
+        return '<button type="button" data-apply-referral="' + esc(r.clientId) + '" class="text-xs border border-outline-variant rounded-full px-2 py-0.5 hover:bg-surface-container-low transition-colors">🎁 مستحقة من ' + esc(r.displayName) + '</button>';
+      }).join("") + '</div>';
+    }
+
     return (
       '<tr class="hover:bg-surface-container-lowest transition-colors">' +
       '<td class="py-4 px-6"><div class="flex items-center gap-3">' +
       '<div class="w-10 h-10 rounded-full bg-primary-container/20 text-primary flex items-center justify-center font-bold flex-none">' + esc(avatarLetter(c.displayName)) + '</div>' +
-      '<div><div class="text-sm text-on-surface font-semibold">' + esc(c.displayName) + '</div><div class="text-xs text-on-surface-variant" dir="ltr">' + esc(c.id) + '</div></div>' +
+      '<div><div class="text-sm text-on-surface font-semibold">' + esc(c.displayName) + '</div><div class="text-xs text-on-surface-variant" dir="ltr">' + esc(c.id) + '</div>' + referralHtml + '</div>' +
       '</div></td>' +
       '<td class="py-4 px-6">' + planBadge(c.tier) + '</td>' +
       '<td class="py-4 px-6">' + statusBadge(status) + '</td>' +
@@ -178,7 +185,7 @@
       '<td class="py-4 px-6"><div class="flex items-center gap-1.5 text-on-surface-variant">' +
       '<span class="material-symbols-outlined text-[18px]">folder</span><span class="text-sm font-semibold">' + esc(c.knowledgeFiles.length) + '</span>' +
       '</div></td>' +
-      '<td class="py-4 px-6 text-center"><a href="/admin/legacy?edit=' + encodeURIComponent(c.id) + '" class="text-primary hover:bg-surface-container-low font-semibold text-sm px-3 py-1.5 rounded transition-colors" style="text-decoration:none;">فتح</a></td>' +
+      '<td class="py-4 px-6 text-center"><a href="/admin/client/' + encodeURIComponent(c.id) + '" class="text-primary hover:bg-surface-container-low font-semibold text-sm px-3 py-1.5 rounded transition-colors" style="text-decoration:none;">فتح</a></td>' +
       '</tr>'
     );
   }
@@ -246,6 +253,23 @@
     var pageItems = filtered.slice(startIdx, startIdx + PAGE_SIZE);
     body.innerHTML = pageItems.map(renderRow).join("");
     renderPagination(filtered.length);
+
+    body.querySelectorAll("[data-apply-referral]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var referredId = btn.getAttribute("data-apply-referral");
+        if (!confirm("تأكيد تطبيق مكافأة الإحالة (تمديد شهرين) لهالعميل؟")) return;
+        api("/admin/api/clients/" + referredId + "/apply-referral-reward", { method: "POST" })
+          .then(function () {
+            return api("/admin/api/clients");
+          })
+          .then(function (data) {
+            allClients = data.clients || [];
+            render();
+          })
+          .catch(function (err) { alert(err.message); });
+      });
+    });
   }
 
   ["search-input"].forEach(function (id) {
