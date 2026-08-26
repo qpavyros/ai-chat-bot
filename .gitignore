@@ -10,3 +10,6 @@ src/clients/dukkanatek/
 src/clients/dukkanatek-2/
 src/clients/client-*/
 *.bak
+
+# ملفات طوارئ/handoff فيها أسرار حقيقية (كلمات سر، مفاتيح API) — محلية بس، ما تنرفع أبدًا.
+HANDOFF-*.md
