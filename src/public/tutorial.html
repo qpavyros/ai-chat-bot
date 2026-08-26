@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دليل الاستخدام الكامل — ساعدني AI</title>
+<style>
+  :root{
+    --primary:#00288e; --primary-dark:#001a5c; --accent:#57dffe; --bg:#fbf8ff;
+    --card:#ffffff; --line:#e5e7eb; --text:#1f2937; --muted:#6b7280; --ok:#059669;
+    --warn:#d97706; --err:#dc2626; --soft:#eef2ff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;line-height:1.9;font-size:15px}
+  .wrap{max-width:860px;margin:0 auto;padding:24px 18px 80px}
+  header.hero{background:linear-gradient(135deg,var(--primary),#173bab);color:#fff;border-radius:0 0 26px 26px;padding:44px 20px;text-align:center;margin-bottom:34px}
+  header.hero h1{margin:0 0 10px;font-size:30px}
+  header.hero p{margin:0 auto;max-width:640px;opacity:.92}
+  h2{font-size:22px;color:var(--primary);border-inline-start:6px solid var(--accent);padding-inline-start:12px;margin:46px 0 14px}
+  h3{font-size:17px;margin:22px 0 8px;color:var(--primary-dark)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:14px 0;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+  .steps{counter-reset:s;padding:0;margin:0;list-style:none}
+  .steps li{position:relative;padding-inline-start:52px;margin-bottom:16px;counter-increment:s}
+  .steps li::before{content:counter(s);position:absolute;inset-inline-start:0;top:2px;width:36px;height:36px;border-radius:50%;
+    background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold}
+  .tip{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:10px 14px;margin:10px 0}
+  .warnbox{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px 14px;margin:10px 0}
+  .dangerbox{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:10px 14px;margin:10px 0}
+  code.kbd{background:var(--soft);border:1px solid #dbeafe;border-radius:6px;padding:2px 8px;font-family:Consolas,monospace;direction:ltr;display:inline-block}
+  pre.code{direction:ltr;text-align:left;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;overflow-x:auto;font-size:13px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;background:var(--card);font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:right}
+  th{background:var(--soft)}
+  .mock{border:1px dashed var(--primary);border-radius:14px;padding:16px;background:#fff;margin:12px 0}
+  .mock .bar{height:14px;border-radius:7px;background:#e5e7eb;margin:8px 0}
+  .toggle{display:inline-flex;align-items:center;gap:8px;margin:6px 10px 6px 0}
+  .toggle .track{width:44px;height:24px;border-radius:12px;background:var(--ok);position:relative;display:inline-block}
+  .toggle .track.off{background:#cbd5e1}
+  .toggle .track::after{content:"";position:absolute;top:3px;inset-inline-end:3px;width:18px;height:18px;background:#fff;border-radius:50%}
+  .badge{display:inline-block;background:var(--soft);color:var(--primary);border-radius:999px;padding:2px 12px;font-size:13px;margin:2px}
+  svg.diagram{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:14px;margin:10px 0}
+  .toc a{color:var(--primary);text-decoration:none}
+  .toc li{margin:4px 0}
+  .btnprint{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 22px;font-size:15px;cursor:pointer;margin:4px}
+  a.dl{display:inline-block;background:var(--ok);color:#fff;border-radius:10px;padding:10px 22px;text-decoration:none;margin:4px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>📘 دليل الاستخدام الكامل — ساعدني AI</h1>
+  <p>كل ما تحتاج معرفته من الصفر: إنشاء البوت، ربط واتساب وموقعك، الرسائل الصوتية، المواعيد والتذكيرات، القنوات، التقارير — خطوة بخطوة وبالصور.</p>
+  <div style="margin-top:14px">
+    <button class="btnprint" onclick="window.print()">🖨️ طباعة / حفظ كـPDF</button>
+    <a class="dl" href="/public/tutorial.pdf">⬇️ تحميل نسخة PDF جاهزة</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="card toc">
+  <b>📑 محتويات الدليل:</b>
+  <ol>
+    <li><a href="#s1">إنشاء الحساب وتسجيل الدخول</a></li>
+    <li><a href="#s2">إضافة أول بوت لك (بيانات الشركة)</a></li>
+    <li><a href="#s3">تغذية البوت بالمعرفة (PDF / Excel / موقعك)</a></li>
+    <li><a href="#s4">المعاينة والتجربة قبل التفعيل</a></li>
+    <li><a href="#s5">التفعيل + تركيب الودجت بموقعك</a></li>
+    <li><a href="#s6">ربط واتساب بزنس تلقائياً</a></li>
+    <li><a href="#s7">لوحة إدارة البوت (كل المفاتيح بجزة)</a></li>
+    <li><a href="#s8">الرسائل الصوتية وسقوفها + شحن الرصيد ⚡</a></li>
+    <li><a href="#s9">قناة تلغرام ✈️ وقناة ديسكورد 🎮</a></li>
+    <li><a href="#s10">حجز المواعيد والتذكير التلقائي 🔔</a></li>
+    <li><a href="#s11">البوت ما برد؟ — قائمة فحص سريعة 🛠️</a></li>
+  </ol>
+</div>
+
+<svg class="diagram" viewBox="0 0 800 150" role="img" aria-label="مسار الإعداد">
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#00288e"/></marker></defs>
+  <rect x="20" y="45" width="160" height="60" rx="14" fill="#eef2ff" stroke="#00288e"/>
+  <text x="100" y="70" text-anchor="middle" font-size="14" fill="#00288e" font-weight="bold">١) حساب</text>
+  <text x="100" y="90" text-anchor="middle" font-size="11" fill="#6b7280">دقيقة واحدة</text>
+  <line x1="185" y1="75" x2="225" y2="75" stroke="#00288e" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="230" y="45" width="160" height="60" rx="14" fill="#eef2ff" stroke="#00288e"/>
+  <text x="310" y="70" text-anchor="middle" font-size="14" fill="#00288e" font-weight="bold">٢) بيانات الشركة</text>
+  <text x="310" y="90" text-anchor="middle" font-size="11" fill="#6b7280">اسم + أرقام تواصل</text>
+  <line x1="395" y1="75" x2="435" y2="75" stroke="#00288e" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="440" y="45" width="160" height="60" rx="14" fill="#eef2ff" stroke="#00288e"/>
+  <text x="520" y="70" text-anchor="middle" font-size="14" fill="#00288e" font-weight="bold">٣) المعرفة + تجربة</text>
+  <text x="520" y="90" text-anchor="middle" font-size="11" fill="#6b7280">PDF أو موقعك</text>
+  <line x1="605" y1="75" x2="645" y2="75" stroke="#00288e" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="650" y="45" width="130" height="60" rx="14" fill="#00288e"/>
+  <text x="715" y="70" text-anchor="middle" font-size="14" fill="#ffffff" font-weight="bold">٤) تفعيل 🚀</text>
+  <text x="715" y="90" text-anchor="middle" font-size="11" fill="#bfdbfe">واتساب + ودجت</text>
+</svg>
+
+<!-- ==================== 1 -->
+<h2 id="s1">١) إنشاء الحساب وتسجيل الدخول</h2>
+<div class="card">
+  <ol class="steps">
+    <li>افتح <code class="kbd">https://app.abiad.systems/auth</code>.</li>
+    <li>اختر تبويب <b>«إنشاء حساب»</b> وأدخل بريدك الإلكتروني وكلمة سر (٦ أحرف على الأقل)، أو اضغط <b>«الدخول عبر Google»</b> لدخول بضغطة.</li>
+    <li>ستستقبل رسالة تحقق على بريدك إن طُلبت — افتح الرابط واضغط تأكيد.</li>
+  </ol>
+  <div class="mock">
+    <b>شكل الشاشة:</b>
+    <div class="bar" style="width:40%"></div>
+    <div class="bar"></div>
+    <div class="bar" style="width:70%"></div>
+    <div style="margin-top:8px"><span class="badge">دخول</span><span class="badge">إنشاء حساب</span><span class="badge">Google</span><span class="badge">نسيت كلمة السر؟</span></div>
+  </div>
+  <div class="tip">💡 جلسة الدخول تدوم ~٣٠ يوماً على نفس المتصفح — ما تحتاج تسجل دخول كل مرة.</div>
+</div>
+
+<!-- ==================== 2 -->
+<h2 id="s2">٢) إضافة أول بوت لك (بيانات الشركة)</h2>
+<div class="card">
+  <ol class="steps">
+    <li>من لوحة التحكم اضغط <b>«أضف بوت جديد»</b> أو افتح <code class="kbd">/public/signup</code>.</li>
+    <li>عبّي: <b>اسم شركتك</b> (هو اسم البوت أمام زبائنك)، <b>رقم واتساب لاستقبال التنبيهات</b>، <b>رقم تصعيد للزبائن</b>، ورابط موقعك.</li>
+    <li>وافق على الشروط واضغط متابعة — سينشأ «طلب تسجيل» خاص بك.</li>
+  </ol>
+  <div class="tip">💡 رقم التصعيد هو الرقم الذي سيظهر لزبائنك عندما يطلبون التحدث مع إنسان — اجعله رقماً مفعّلاً فعلاً.</div>
+</div>
+
+<!-- ==================== 3 -->
+<h2 id="s3">٣) تغذية البوت بالمعرفة</h2>
+<div class="card">
+  <p>البوت يجيب فقط من المعلومات التي تعطيه إياها — هذه أهم خطوة تحدد جودة ردوده.</p>
+  <h3>الطريقة أ — رفع ملف (الأفضل والأدق)</h3>
+  <ol class="steps">
+    <li>جهّز ملف <b>PDF</b> يحتوي أسعارك/خدماتك/سياساتك، أو <b>Excel/CSV</b> بقائمة منتجاتك.</li>
+    <li>اسحبه داخل مربع الرفع في صفحة الإعداد (حد أقصى 10MB).</li>
+  </ol>
+  <h3>الطريقة ب — الاستيراد من موقعك</h3>
+  <ol class="steps">
+    <li>اختر تبويب «من موقعي» — سيقرأ النظام محتوى صفحات موقعك تلقائياً.</li>
+  </ol>
+  <div class="warnbox">⚠️ إذا كان موقعك يحمّل قائمته بـJavaScript (مواقع مطاعم حديثة مثلاً) قد يصل نص ناقص — الأضمن ملف PDF.</div>
+  <p>بعد الرفع يعمل النظام <b>فحص جودة تلقائي</b> ويعرض لك معاينة للنص المستخرج — اقرأها! ولديك حتى ٥ محاولات استيراد قبل التفعيل.</p>
+</div>
+
+<!-- ==================== 4 -->
+<h2 id="s4">٤) المعاينة والتجربة قبل التفعيل</h2>
+<div class="card">
+  <p>في نفس الصفحة ستجد <b>غرفة تجربة مباشرة</b>: اكتب أسئلة زبائنك المتوقعة وشاهد ردود البوت قبل أن يرى أحداً منها.</p>
+  <ul>
+    <li>جرّب أسئلة السعر، التوفر، السياسات، وحتى رسالة استفزازية للتأكد من التصعيد.</li>
+    <li>غير راضٍ؟ عدّل المعرفة وأعد الرفع ثم جرّب مجدداً — بدون أي تكلفة على زبائن حقيقيين.</li>
+  </ul>
+  <div class="tip">💡 في وضع المعاينة يكون البوت بحالة «preview»: لا يستقبل أي رسالة حقيقية إطلاقاً حتى تضغط تفعيل.</div>
+</div>
+
+<!-- ==================== 5 -->
+<h2 id="s5">٥) التفعيل + تركيب الودجت بموقعك</h2>
+<div class="card">
+  <ol class="steps">
+    <li>اضغط <b>«تفعيل البوت»</b> — تبدأ فترتك التجريبية المجانية <b>٧ أيام</b> (حتى ١٢٠ رسالة).</li>
+    <li>سيظهر لك <b>كود الودجت الجاهز</b> — انسخه كما هو.</li>
+    <li>الصقه قبل نهاية <code class="kbd">&lt;/body&gt;</code> في كل صفحة بموقعك تريد ظهور الزر فيها.</li>
+  </ol>
+  <pre class="code">&lt;script src="https://app.abiad.systems/widget/chat-widget.js"
+        data-server="https://app.abiad.systems"
+        data-client-id="معرف-بوتك"
+        data-public-key="pk_..."&gt;&lt;/script&gt;</pre>
+  <p>فوراً سيظهر زر دردشة عائم بزاوية موقعك 🎉</p>
+  <div class="tip">💡 التجربة تبدأ من لحظة الضغط على تفعيل (وليس من إنشاء الحساب) — خذ وقتك بالمعاينة.</div>
+</div>
+
+<!-- ==================== 6 -->
+<h2 id="s6">٦) ربط واتساب بزنس تلقائياً</h2>
+<div class="card">
+  <ol class="steps">
+    <li>من صفحة الإعداد اختر <b>«اربط واتساب»</b> — ستفتح نافذة فيسبوك آمنة.</li>
+    <li>سجّل دخول بحساب Meta Business الخاص بشركتك واتبع الخطوات: اختيار/إنشاء WABA ← اختيار رقم ← منح الصلاحيات.</li>
+    <li>عند النجاح يتم ربط الرقم ببوتك تلقائياً، ويصبح جاهزاً لاستقبال رسائل زبائنك.</li>
+  </ol>
+  <div class="warnbox">📌 حدود Meta للأرقام الجديدة: تبدأ بـ٢٥٠ محادثة فريدة/٢٤ ساعة وترتفع تلقائياً مع جودة الخدمة العالية — ردّ على الزبائن بسرعة وحافظ على تقييم ممتاز لتتسلق المستويات.</div>
+  <h3>بدون واتساب؟ عندك بدائل جاهزة</h3>
+  <p>نفس البوت يرد أيضاً عبر <b>ودجت الموقع</b>، و<b>تلغرام</b>، و<b>ديسكورد</b> — انظر قسم ٩.</p>
+</div>
+
+<!-- ==================== 7 -->
+<h2 id="s7">٧) لوحة إدارة البوت — كل المفاتيح بجزة</h2>
+<div class="card">
+  <p>افتح لوحتك من <code class="kbd">/dashboard</code> واضغط على بطاقة البوت. ستجد الأقسام التالية:</p>
+
+  <h3>٧.١ المعلومات الأساسية</h3>
+  <ul>
+    <li><b>اسم البوت</b> وطريقة صياغة الردود (أسلوب الرد).</li>
+    <li><b>رقم التصعيد</b> + وصف طريقة التواصل + رقم واتساب لتنبيهاتك الشخصية.</li>
+  </ul>
+
+  <h3>٧.٢ مفاتيح التشغيل (مهم!)</h3>
+  <div class="mock">
+    <div class="toggle"><span class="track"></span> البوت شغّال (كل القنوات)</div><br>
+    <div class="toggle"><span class="track"></span> الرد عبر واتساب</div>
+    <div class="toggle"><span class="track"></span> الرد عبر ودجت الموقع</div>
+    <div class="toggle"><span class="track"></span> الرد عبر تلغرام</div>
+    <br><span style="font-size:12px;color:var(--muted)">مثال: أوقف «واتساب» فقط = الموقع يظل يرد بشكل طبيعي.</span>
+  </div>
+  <ul>
+    <li><b>الإيقاف الكامل</b>: رد ثابت مهذب يوجّه الزبون للتواصل المباشر — مفيد أثناء العطلات.</li>
+    <li><b>إيقاف قناة واحدة</b>: باقي القنوات تستمر بشكل طبيعي.</li>
+  </ul>
+
+  <h3>٧.٣ 🎤 الرد على الرسائل الصوتية</h3>
+  <p>عندما يرسل زبونك رسالة صوتية، يستمع لها البوت ويرد على محتواها. السقف الشهري حسب باقتك:</p>
+  <table>
+    <tr><th>الباقة</th><th>دقائق صوت / شهر</th></tr>
+    <tr><td>البداية $29</td><td>١٥ دقيقة</td></tr>
+    <tr><td>النمو $59</td><td>٤٥ دقيقة</td></tr>
+    <tr><td>الاحترافي $99</td><td>١٢٠ دقيقة</td></tr>
+    <tr><td>التجربة المجانية</td><td>٥ دقائق</td></tr>
+  </table>
+  <div class="tip">💡 يمكنك تعطيل الميزة كلياً من نفس الصفحة — وعند نفاد الدقائق يمكن الشحن (قسم ٨).</div>
+
+  <h3>٧.٤ 🌙 الرد خارج ساعات الدوام</h3>
+  <p>فعّلها وحدّد دوامك (مثلاً ٩ص–٥م). خارج هذه الساعات يرد البوت برسالة مهذبة تطمئن الزبون أن رسالته مسجلة وسيتم الرد — بدون استهلاك أي رسائل من باقتك.</p>
+
+  <h3>٧.٥ 💼 وضع البيع الذكي</h3>
+  <p>يقرأ البوت نيّة الزبون وأسلوبه (مستعجل؟ متشكك؟ مقارن أسعار؟) ويعدل رده ليقود المحادثة لإتمام الطلب بأدب — مع منع صارم لاختراع أي خصم أو عرض غير موجود في معرفتك.</p>
+
+  <h3>٧.۶ 📄 سجل المحادثات والتصدير</h3>
+  <ul>
+    <li>قائمة بكل زبائنك وآخر نشاطهم وآخر رسالة.</li>
+    <li>زر «عرض» لمشاهدة محادثة كاملة سؤالاً بسؤال.</li>
+    <li>زر <b>«تصدير Excel كامل»</b> — ورقة ملخص + ورقة بكل التبادلات التاريخية.</li>
+  </ul>
+
+  <h3>٧.۷ 📊 تقارير مباشرة</h3>
+  <p>زبائن فريدون، نشاط آخر ٧ أيام، محادثات جديدة بآخر ٣٠ يوم، طلبيات، ونسبة التصعيدات — كلها محسوبة من بياناتك الحقيقية.</p>
+
+  <h3>٧.۸ 🗑️ حذف البوت (بتأكيد مزدوج)</h3>
+  <p>يتطلب إعادة إثبات كلمة سر حسابك + كتابة اسم البوت حرفياً، ثم يمسك النظام نسخة احتياطية لمدة <b>٣٠ يوماً</b> قبل الحذف النهائي.</p>
+</div>
+
+<!-- ==================== 8 -->
+<h2 id="s8">٨) ⚡ شحن رصيد رسائل إضافية</h2>
+<div class="card">
+  <p>إذا اقتربت من سقف باقتك ولا تريد الانتظار حتى التجديد:</p>
+  <table>
+    <tr><th>الباقة</th><th>الرصيد</th><th>السعر</th><th>سعر الرسالة</th></tr>
+    <tr><td>شحن صغير</td><td>١٠٠ رسالة</td><td>$8</td><td>$0.080</td></tr>
+    <tr><td>شحن متوسط</td><td>٣٠٠ رسالة</td><td>$21</td><td>$0.070</td></tr>
+  </table>
+  <ol class="steps">
+    <li>تواصل معنا لتسجيل طلب الشحن والدفع.</li>
+    <li>يضيف فريقنا الرصيد فوراً لحسابك — يظهر عندك في لوحة البوت: «⚡ رصيد شحن: X».</li>
+  </ol>
+  <div class="tip">💡 الرصيد يُستهلك تلقائياً فقط بعد انتهاء رسائل باقتك الشهرية — لا ينقص أبداً وأنت ضمن حد باقتك.</div>
+</div>
+
+<!-- ==================== 9 -->
+<h2 id="s9">٩) قنوات تلغرام ✈️ وديسكورد 🎮</h2>
+<div class="card">
+  <h3>تلغرام (دقيقتان)</h3>
+  <ol class="steps">
+    <li>افتح <code class="kbd">@BotFather</code> في تلغرام ← أرسل <code class="kbd">/newbot</code> ← اختر اسماً ومعرفاً.</li>
+    <li>انسخ <b>التوكن</b> الذي أعطاك إياه (يبدأ بأرقام ونقطتين).</li>
+    <li>أرسله لنا لتفعيله على بوتك — وسيتسجل الاتصال تلقائياً، وزبائنك يتحدثون مع بوتك داخل تلغرام مباشرة.</li>
+  </ol>
+  <h3>ديسكورد</h3>
+  <ol class="steps">
+    <li>أنشئ تطبيقاً من <code class="kbd">discord.com/developers/applications</code> ← New Application ← تبويب Bot.</li>
+    <li><b>فعّل «Message Content Intent»</b> من نفس الصفحة (بدونه لن يقرأ الرسائل!).</li>
+    <li>Reset Token وانسخه وأرسله لنا بنفس الطريقة — البوت يرد على الرسائل الخاصة (DM).</li>
+  </ol>
+  <div class="tip">💡 كل قناة لها مفتاح إيقاف مستقل من لوحة البوت (قسم ٧.٢).</div>
+</div>
+
+<!-- ==================== 10 -->
+<h2 id="s10">١٠) 🔔 حجز المواعيد والتذكير التلقائي</h2>
+<div class="card">
+  <p>فعّل المواعيد وحدد دوامك من لوحة البوت (وقت البداية/النهاية ومدة الخانة). سيبدأ البوت بـ:</p>
+  <ul>
+    <li><b>فحص التوفر</b> الحقيقي وإظهار الأوقات الفارغة فقط.</li>
+    <li><b>الحجز</b> بعد جمع: التاريخ + الوقت + الاسم + رقم التواصل.</li>
+    <li><b>الإلغاء</b> بنفس تفاصيل الحجز الثلاثة.</li>
+  </ul>
+  <h3>التذكير التلقائي 🔔</h3>
+  <ul>
+    <li>افتراضياً يذكّر الزبون قبل موعده بـ<b>٢٤ ساعة</b> وبـ<b>ساعتين</b>.</li>
+    <li>للتذكير خارج نافذة الـ٢٤ ساعة التي تسمح بها Meta، نحتاج <b>قالب معتمد</b> باسم مثل <code class="kbd">appointment_reminder</code> بالنص:<br>«تذكير: موعدك يوم {{1}} الساعة {{2}} مع {{3}}.» — ننشئه معك مرة واحدة وينفع لكل الزبائن.</li>
+  </ul>
+  <div class="warnbox">⚠️ لا يدعم حالياً «تعديل» موعد محجوز لوقت آخر — الحل: إلغاء ثم حجز جديد.</div>
+</div>
+
+<!-- ==================== 11 -->
+<h2 id="s11">١١) 🛠️ البوت ما برد؟ — قائمة فحص دقيقة</h2>
+<div class="card">
+  <table>
+    <tr><th>الفحص</th><th>وين تلقاه</th></tr>
+    <tr><td>هل البوت موقوف كلياً؟</td><td>لوحة البوت ← مفاتيح التشغيل</td></tr>
+    <tr><td>هل قناة الوارد منه مطفية؟ (واتساب/ويب/تلغرام)</td><td>نفس القسم</td></tr>
+    <tr><td>هل خلصت التجربة أو سقف الباقة؟</td><td>شريط الاستهلاك أعلى لوحة البوت</td></tr>
+    <tr><td>هل الزبون حاول خلال ساعات الدوام المغلقة؟</td><td>إعداد «الرد خارج الدوام»</td></tr>
+    <tr><td>هل المحادثة مصعّدة لإنسان؟ (توقف مؤقت ٤ ساعات)</td><td>يصلك تنبيه واتساب عند كل تصعيد</td></tr>
+    <tr><td>رسالة صوتية والميزة معطلة عنده؟</td><td>مفتاح 🎤 بلوحة البوت</td></tr>
+    <tr><td>رقم واتساب مرتبط أصلاً؟</td><td>لوحة البوت ← حالة واتساب: متصل/غير متصل</td></tr>
+  </table>
+  <p>ما زالت المشكلة؟ راسل الدعم وسنعمل معك مباشرة.</p>
+</div>
+
+<div class="card" style="text-align:center;background:var(--soft)">
+  <b>جاهز تنطلق؟</b>
+  <p style="margin:6px 0">لوحة التحكم: <code class="kbd">/dashboard</code> • إضافة بوت: <code class="kbd">/public/signup</code> • هذا الدليل: <code class="kbd">/tutorial</code></p>
+  <button class="btnprint" onclick="window.print()">🖨️ حفظ كـPDF الآن</button>
+</div>
+
+<p style="text-align:center;color:var(--muted);font-size:12px">© 2026 ساعدني AI — صنع في لبنان 🇱🇧 | آخر تحديث: آب ٢٠٢٦</p>
+</div>
+</body>
+</html>
