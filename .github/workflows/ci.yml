@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # npm ci يحتاج package-lock.json — موجود بالمشروع. الاختبارات لا تحتاج أي أسرار.
+      - name: Install dependencies
+        run: npm ci
+
+      # فحص صياغة كل ملفات JS (نفس ما نعمل محليًا قبل كل commit)
+      - name: Syntax check
+        shell: bash
+        run: |
+          fail=0
+          while IFS= read -r file; do
+            node --check "$file" || fail=1
+          done < <(find src scripts tests -name "*.js" -type f)
+          exit $fail
+
+      - name: Unit tests
+        run: npm test
