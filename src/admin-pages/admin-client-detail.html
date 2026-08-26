@@ -394,11 +394,13 @@
           title: document.getElementById("f_widgetTitle").value.trim() || null,
           suggestions: suggestions,
         },
-        businessHours: {
+        // Object.assign بيحافظ على byDay (ساعات دوام بأيام محددة) لو الزبون ضبطها من
+        // bot-manage.html — استبدال الكائن بالكامل كان بيمسحها بصمت لما الأدمن يحفظ أي شي تاني.
+        businessHours: Object.assign({}, cfg.businessHours, {
           enabled: document.getElementById("f_businessEnabled").checked,
           start: document.getElementById("f_businessStart").value || "09:00",
           end: document.getElementById("f_businessEnd").value || "17:00",
-        },
+        }),
         voice: { enabled: document.getElementById("f_voiceEnabled").checked },
         salesMode: document.getElementById("f_salesMode").checked,
         botPaused: document.getElementById("f_botPaused").checked,
