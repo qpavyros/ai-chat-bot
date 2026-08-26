@@ -74,9 +74,16 @@
       </div>
 
       <div id="tab-website" style="display:none;">
-        <div class="bg-surface-container p-4 rounded-lg flex items-start gap-3">
+        <div id="website-known" class="bg-surface-container p-4 rounded-lg flex items-start gap-3" style="display:none;">
           <span class="material-symbols-outlined text-secondary mt-1">info</span>
           <p class="text-sm text-on-surface-variant">رح ناخد المعلومات من: <b id="website-url-display" class="text-on-surface"></b></p>
+        </div>
+        <div id="website-input-wrap" style="display:none;">
+          <label class="block text-sm font-medium text-on-surface mb-2" for="website-url-input">رابط موقعك</label>
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined absolute right-3 text-outline">language</span>
+            <input class="w-full bg-surface text-on-surface rounded-lg border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary p-3 pr-10 text-left transition-colors" dir="ltr" id="website-url-input" placeholder="https://your-company.com" type="url" />
+          </div>
         </div>
       </div>
 
@@ -203,9 +210,11 @@
     .then(function (res) {
       if (res.status !== 200) { showState("error-state"); return; }
       pendingState.websiteUrl = res.body.websiteUrl;
-      document.getElementById("website-url-display").textContent = res.body.websiteUrl;
-      if (!res.body.websiteUrl) {
-        document.querySelector('.upload-tab[data-tab="website"]').style.display = "none";
+      if (res.body.websiteUrl) {
+        document.getElementById("website-url-display").textContent = res.body.websiteUrl;
+        document.getElementById("website-known").style.display = "flex";
+      } else {
+        document.getElementById("website-input-wrap").style.display = "block";
       }
 
       if (res.body.completed) {
@@ -251,10 +260,18 @@
   var dropzoneText = document.getElementById("dropzone-text");
   var uploadBtn = document.getElementById("upload-submit-btn");
 
+  var websiteUrlInput = document.getElementById("website-url-input");
+
   function updateUploadButtonState() {
     if (pendingState.clientId) { uploadBtn.disabled = false; return; }
-    uploadBtn.disabled = activeTab === "file" ? !fileInput.files.length : false;
+    if (activeTab === "file") { uploadBtn.disabled = !fileInput.files.length; return; }
+    if (activeTab === "website" && !pendingState.websiteUrl) {
+      uploadBtn.disabled = !/^https?:\/\//.test(websiteUrlInput.value.trim());
+      return;
+    }
+    uploadBtn.disabled = false;
   }
+  websiteUrlInput.addEventListener("input", updateUploadButtonState);
 
   fileInput.addEventListener("change", function () {
     if (fileInput.files.length) {
@@ -293,6 +310,9 @@
     var form = new FormData();
     if (activeTab === "website") {
       form.append("source", "website");
+      if (!pendingState.websiteUrl) {
+        form.append("websiteUrl", websiteUrlInput.value.trim());
+      }
     } else if (fileInput.files.length) {
       form.append("file", fileInput.files[0]);
     } else {

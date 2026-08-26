@@ -67,6 +67,11 @@ async function attachClient(pendingId, clientId, publicKey) {
   return getPending(pendingId);
 }
 
+async function setWebsiteUrl(pendingId, websiteUrl) {
+  await pendingRef(pendingId).update({ websiteUrl });
+  return getPending(pendingId);
+}
+
 async function markCompleted(pendingId) {
   await pendingRef(pendingId).update({ status: "completed" });
   return getPending(pendingId);
@@ -77,6 +82,7 @@ module.exports = {
   getPending,
   incrementKnowledgeAttempts,
   attachClient,
+  setWebsiteUrl,
   markCompleted,
   MAX_KNOWLEDGE_ATTEMPTS,
 };

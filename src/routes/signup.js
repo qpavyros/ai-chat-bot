@@ -200,12 +200,18 @@ router.post("/signup/knowledge", ...requireOwnedPending(), upload.single("file")
       sourceType = detected;
       sourceValue = req.file.originalname;
     } else if (req.body?.source === "website") {
-      if (!pending.websiteUrl) {
-        return res.status(400).json({ error: { code: "no_website_url", message: "ما حطيت رابط موقع بخطوة التسجيل — ارفع ملف بدل هيك" } });
+      let websiteUrl = pending.websiteUrl;
+      if (!websiteUrl) {
+        const provided = req.body?.websiteUrl ? String(req.body.websiteUrl).trim() : "";
+        if (!isValidUrl(provided)) {
+          return res.status(400).json({ error: { code: "invalid_website_url", message: "رابط الموقع لازم يبلّش بـhttp:// أو https://" } });
+        }
+        websiteUrl = provided;
+        await signups.setWebsiteUrl(pending.pendingId, websiteUrl);
       }
-      content = await ingest.ingestWebsite(pending.websiteUrl, { fetch: urlGuard.safeGet });
+      content = await ingest.ingestWebsite(websiteUrl, { fetch: urlGuard.safeGet });
       sourceType = "website";
-      sourceValue = pending.websiteUrl;
+      sourceValue = websiteUrl;
     } else {
       return res.status(400).json({ error: { code: "no_source_provided", message: "ارفع ملف (file) أو ابعت source=website" } });
     }
@@ -232,7 +238,7 @@ router.post("/signup/knowledge", ...requireOwnedPending(), upload.single("file")
       contactEmail: pending.contactEmail,
       notifyWhatsapp: pending.notifyWhatsapp,
       escalationPhone: pending.escalationPhone,
-      websiteUrl: pending.websiteUrl,
+      websiteUrl: sourceType === "website" ? sourceValue : pending.websiteUrl,
       source: { type: sourceType, value: sourceValue, ingestedAt: new Date().toISOString() },
       knowledgeContent: content,
       knowledgeFileName,
