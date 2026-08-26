@@ -1,4 +1,4 @@
 {
-  "ignore": ["data/*", "data/**/*", "*.log"],
+  "ignore": ["data/*", "data/**/*", "src/clients/*", "src/clients/**/*", "*.log"],
   "delay": "300"
 }
