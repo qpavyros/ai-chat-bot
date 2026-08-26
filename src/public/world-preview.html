@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ساعدني AI — عيش الرحلة</title>
+<meta name="description" content="من محل صغير لبوت يرد على زبائنك بالعربي ٢٤/٧ — مرّر وشوف الرحلة." />
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; background: #071233; font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  /* التخطيط الهيكلي لمحرّك scroll-world مبني LTR أصلاً (لوحة النص يسار، تدرّج الخلفية...).
+     بنسيب هيك، بس بنصحّح اتجاه/محاذاة النص العربي جوّاها فقط.
+     الثيم الغامق منبسوط فوق ثيم المحرك الافتراضي (المحرك بيلفّ CSS تبعته بطبقة @layer sw،
+     فأي ستايل غير مُطبَّق بالطبقة بينصر عليه دايماً). */
+  .sw-root {
+    --sw-bg: #071233;
+    --sw-ink: #eef2ff;
+    --sw-ink-soft: #9fb0d8;
+    --sw-font-display: 'IBM Plex Sans Arabic', sans-serif;
+    --sw-font-body: 'IBM Plex Sans Arabic', sans-serif;
+  }
+  .sw-root .sw-copy { direction: rtl; text-align: right; }
+  .sw-root .sw-copy__tags { direction: rtl; justify-content: flex-start; }
+  .sw-root .sw-nav__item { font-family: inherit; }
+  .sw-root .sw-brand__name { direction: rtl; }
+  .sw-root .sw-btn { font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div id="world"></div>
+
+<script src="/public/assets/world/scrub-engine.js"></script>
+<script>
+  mountScrollWorld(document.getElementById('world'), {
+    brand: { name: 'ساعدني AI', href: '/' },
+    diveScroll: 1.4,
+    connScroll: 0.9,
+    hint: 'مرّر لتطير',
+    nav: true,
+    atmosphere: true,
+    cta: { label: 'ابدأ مجاناً', href: '/public/signup' },
+    sections: [
+      {
+        id: 'shop', label: 'المحل', still: '/public/assets/world/scene1-poster.jpg', clip: '/public/assets/world/scene1.mp4',
+        accent: '#57dffe', scroll: 1.5, linger: 0.3,
+        eyebrow: 'من نقطة الصفر', title: 'كل شي بلّش بمحل صغير',
+        body: 'متجرك التقليدي عم يشتغل منيح — بس زبائنك عم يحاولوا يوصلولك بطرق ما عندك وقت ترد عليها كلها.',
+        tags: ['فاترينة حقيقية', 'زبائن حقيقيين'],
+      },
+      {
+        id: 'messages', label: 'المشكلة', still: '/public/assets/world/scene2-poster.jpg', clip: '/public/assets/world/scene2.mp4',
+        accent: '#ffb4a9', scroll: 1.4, linger: 0.35,
+        eyebrow: 'المشكلة', title: 'كل رسالة بلا رد، فرصة عم تروح',
+        body: 'واتساب عم يمتلي أسئلة وطلبات، وكل دقيقة تأخير ممكن تخسّرك زبون لمنافسك.',
+        tags: ['رسائل متراكمة', 'زبائن مستنيين'],
+      },
+      {
+        id: 'knowledge', label: 'الحل', still: '/public/assets/world/scene3-poster.jpg', clip: '/public/assets/world/scene3.mp4',
+        accent: '#8ab4ff', scroll: 1.5, linger: 0.3,
+        eyebrow: 'الحل', title: 'بوتك بيتعلّم بدقائق',
+        body: 'ارفع ملف منتجاتك أو رابط موقعك بس — وخلال دقائق البوت جاهز يرد عن شركتك ٢٤ ساعة بالعربي.',
+        tags: ['رفع ملف أو رابط', 'جاهز بدقائق'],
+      },
+      {
+        id: 'replies', label: 'الرد الفوري', still: '/public/assets/world/scene4.svg',
+        accent: '#6ee7a0', scroll: 1.4, linger: 0.35,
+        eyebrow: 'التشغيل', title: 'بوتك بيرد فوراً… بالعربي',
+        body: 'زبونك بيسأل على واتساب، والبوت بيرد خلال ثواني — ياخد الطلب، يحجز الموعد، ويرد على كل استفسار بدل ما يستنى.',
+        tags: ['رد خلال ثواني', '٢٤/٧ بالعربي'],
+      },
+      {
+        id: 'growth', label: 'النمو', still: '/public/assets/world/scene5.svg',
+        accent: '#ffd166', scroll: 1.4, linger: 0.3,
+        eyebrow: 'النتائج', title: 'شوف نموّك قدّام عينك',
+        body: 'كل محادثة بتتحسب: كم زبون دخل، كم طلب انعمل، كم ساعة وفّرت لنفسك. أرقامك كلها بلوحة واحدة واضحة.',
+        tags: ['إحصائيات لحظية', 'وقت وفلوس موفّرين'],
+      },
+      {
+        id: 'start', label: 'ابدأ الآن', still: '/public/assets/world/scene6.svg',
+        accent: '#57dffe', scroll: 1.5, linger: 0.45,
+        eyebrow: 'والرحلة بتبلش معك', title: 'خلّي بوتك يشغّل شغلك',
+        body: 'نفس المحل، نفس الزبائن — بس هالمرة كل رسالة بتوصل لجاوب. جرّب مجاناً وجاهز بدقائق.',
+        tags: [],
+        cta: {
+          primary: { label: 'ابدأ مجاناً', href: '/public/signup' },
+          secondary: { label: 'تسجيل الدخول', href: '/auth' },
+        },
+      },
+    ],
+    connectors: [], // معماريّة A (تحليق مستمر للأمام) — بلا موصّلات، كل مشهد بيكمّل مباشرة للي بعده.
+                    // المشاهد ٤-٦ مرسومة SVG بالكود؛ ولما تتولّد بوسترات/فيديوهات AI بنفس المسارات
+                    // (sceneN-poster.jpg / sceneN.mp4) بس غيّر المسار هون.
+  });
+
+  // شبكة أمان: بعض الأجهزة/الـwebviews بترجع window.innerHeight=0 لحظة أول تحميل قبل
+  // ما ترسم فعلياً، وهيك بيصفّر ارتفاع مسار السكرول بشكل دائم. إعادة إطلاق resize بعد
+  // تأخير بسيط بتفعّل إعادة الحساب لو صار هيك.
+  setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 300);
+</script>
+
+</body>
+</html>

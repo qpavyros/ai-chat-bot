@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="bg6" cx="50%" cy="62%" r="90%">
+      <stop offset="0%" stop-color="#123a72"/>
+      <stop offset="42%" stop-color="#0b1f52"/>
+      <stop offset="100%" stop-color="#050d24"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd166" stop-opacity=".5"/>
+      <stop offset="55%" stop-color="#ffb45e" stop-opacity=".16"/>
+      <stop offset="100%" stop-color="#ffb45e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass6" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity=".17"/>
+      <stop offset="55%" stop-color="#9fc6ff" stop-opacity=".07"/>
+      <stop offset="100%" stop-color="#00288e" stop-opacity=".24"/>
+    </linearGradient>
+    <linearGradient id="winWarm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe9b8" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#ffbe6b" stop-opacity=".75"/>
+    </linearGradient>
+    <linearGradient id="awning6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#57dffe" stop-opacity=".85"/>
+      <stop offset="100%" stop-color="#1c6fd1" stop-opacity=".7"/>
+    </linearGradient>
+    <linearGradient id="ray6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd166" stop-opacity=".12"/>
+      <stop offset="100%" stop-color="#ffd166" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow6" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft6" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="blurBig6" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="52"/></filter>
+    <path id="star" d="M0 -34 10 -11 35 -11 15 4 23 29 0 15 -23 29 -15 4 -35 -11 -10 -11 Z"/>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg6)"/>
+
+  <!-- warm celebratory bokeh -->
+  <g filter="url(#blurBig6)">
+    <circle cx="300" cy="300" r="110" fill="#ffd166" opacity=".13"/>
+    <circle cx="1640" cy="280" r="100" fill="#57dffe" opacity=".12"/>
+    <circle cx="1760" cy="760" r="90" fill="#ffd166" opacity=".10"/>
+    <circle cx="170" cy="800" r="90" fill="#2e63ff" opacity=".12"/>
+  </g>
+
+  <!-- golden rays from the shop -->
+  <polygon points="820,-40 1010,-40 700,1120 560,1120" fill="url(#ray6)" opacity=".6"/>
+  <polygon points="1080,-40 1220,-40 1330,1120 1210,1120" fill="url(#ray6)" opacity=".5"/>
+
+  <!-- big warm halo behind the storefront -->
+  <ellipse cx="960" cy="700" rx="720" ry="420" fill="url(#halo)" opacity=".8"/>
+
+  <!-- ============ the storefront (scene-1 echo, brighter) ============ -->
+  <g transform="translate(960 730)">
+    <!-- ground glow -->
+    <ellipse cx="0" cy="250" rx="560" ry="70" fill="#ffd166" opacity=".22" filter="url(#blurBig6)"/>
+
+    <!-- glass sign board (blank — no text) -->
+    <rect x="-330" y="-330" width="660" height="120" rx="26" fill="url(#glass6)" stroke="#ffffff" stroke-opacity=".55" stroke-width="2.5" filter="url(#glow6)"/>
+    <rect x="-300" y="-327" width="600" height="4" rx="2" fill="#ffffff" opacity=".65"/>
+
+    <!-- awning with scalloped edge -->
+    <g>
+      <rect x="-360" y="-196" width="720" height="64" rx="18" fill="url(#awning6)"/>
+      <g fill="url(#awning6)">
+        <path d="M-360 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M-288 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M-216 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M-144 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M-72 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M0 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M72 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M144 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M216 -136 a36 30 0 0 0 72 0 z"/>
+        <path d="M288 -136 a36 30 0 0 0 72 0 z"/>
+      </g>
+      <rect x="-360" y="-199" width="720" height="5" rx="2.5" fill="#ffffff" opacity=".6"/>
+    </g>
+
+    <!-- facade -->
+    <rect x="-340" y="-132" width="680" height="380" rx="10" fill="url(#glass6)" stroke="#ffffff" stroke-opacity=".38" stroke-width="2"/>
+
+    <!-- display window glowing warm -->
+    <rect x="-290" y="-92" width="360" height="230" rx="16" fill="url(#winWarm)" stroke="#ffffff" stroke-opacity=".6" stroke-width="2" filter="url(#soft6)"/>
+    <rect x="-290" y="-92" width="360" height="230" rx="16" fill="url(#winWarm)" stroke="#ffffff" stroke-opacity=".6" stroke-width="2"/>
+    <!-- shelves hinted inside -->
+    <g stroke="#8a5a1e" stroke-opacity=".35" stroke-width="3">
+      <line x1="-262" y1="-24" x2="42" y2="-24"/><line x1="-262" y1="48" x2="42" y2="48"/>
+    </g>
+    <g fill="#fff3d6" opacity=".85">
+      <rect x="-238" y="-56" width="26" height="32" rx="5"/><rect x="-198" y="-64" width="30" height="40" rx="5"/><rect x="-152" y="-52" width="24" height="28" rx="5"/>
+      <rect x="-242" y="12" width="28" height="36" rx="5"/><rect x="-200" y="8" width="24" height="40" rx="5"/><rect x="-158" y="16" width="30" height="32" rx="5"/>
+    </g>
+    <!-- mullions -->
+    <line x1="-110" y1="-92" x2="-110" y2="138" stroke="#04102e" stroke-opacity=".5" stroke-width="6"/>
+
+    <!-- door -->
+    <rect x="96" y="-92" width="150" height="338" rx="12" fill="#12306e" stroke="#ffffff" stroke-opacity=".5" stroke-width="2.5"/>
+    <rect x="118" y="-68" width="106" height="180" rx="8" fill="url(#winWarm)" opacity=".8"/>
+    <circle cx="222" cy="70" r="7" fill="#ffd166" filter="url(#glow6)"/>
+
+    <!-- string lights across the top -->
+    <g filter="url(#glow6)">
+      <path d="M-430 -240 Q0 -160 430 -240" fill="none" stroke="#ffffff" stroke-opacity=".25" stroke-width="2"/>
+      <g fill="#ffd166">
+        <circle cx="-330" cy="-217" r="7"><animate attributeName="opacity" values=".5;1;.5" dur="2.2s" repeatCount="indefinite"/></circle>
+        <circle cx="-220" cy="-197" r="6"><animate attributeName="opacity" values="1;.5;1" dur="2.6s" repeatCount="indefinite"/></circle>
+        <circle cx="-110" cy="-182" r="7"><animate attributeName="opacity" values=".5;1;.5" dur="2s" begin=".4s" repeatCount="indefinite"/></circle>
+        <circle cx="0" cy="-175" r="6"><animate attributeName="opacity" values="1;.4;1" dur="2.4s" repeatCount="indefinite"/></circle>
+        <circle cx="110" cy="-182" r="7"><animate attributeName="opacity" values=".5;1;.5" dur="2.1s" begin=".8s" repeatCount="indefinite"/></circle>
+        <circle cx="220" cy="-197" r="6"><animate attributeName="opacity" values="1;.5;1" dur="2.7s" repeatCount="indefinite"/></circle>
+        <circle cx="330" cy="-217" r="7"><animate attributeName="opacity" values=".5;1;.5" dur="2.3s" begin=".2s" repeatCount="indefinite"/></circle>
+      </g>
+    </g>
+  </g>
+
+  <!-- customer silhouettes drifting toward the shop -->
+  <g fill="#0a1c48" opacity=".92">
+    <g transform="translate(320 900)">
+      <ellipse cx="0" cy="86" rx="46" ry="10" fill="#000" opacity=".3"/>
+      <circle cx="0" cy="-58" r="26"/><path d="M-30 -30 q30 -18 60 0 l10 116 h-80 z"/>
+    </g>
+    <g transform="translate(1560 905) scale(-1 1)">
+      <ellipse cx="0" cy="86" rx="44" ry="10" fill="#000" opacity=".3"/>
+      <circle cx="0" cy="-54" r="24"/><path d="M-28 -28 q28 -16 56 0 l9 112 h-74 z"/>
+    </g>
+    <g transform="translate(1420 940) scale(-1 .94)">
+      <ellipse cx="0" cy="86" rx="38" ry="9" fill="#000" opacity=".3"/>
+      <circle cx="0" cy="-50" r="21"/><path d="M-25 -26 q25 -14 50 0 l8 104 h-66 z"/>
+    </g>
+  </g>
+
+  <!-- ============ floating glass stars (ratings) ============ -->
+  <g transform="translate(960 210)" filter="url(#soft6)" opacity=".5">
+    <use href="#star" fill="#ffd166" x="-260" y="30"/><use href="#star" fill="#ffd166" x="255" y="18"/>
+  </g>
+  <g filter="url(#glow6)">
+    <g fill="url(#glass6)" stroke="#ffd166" stroke-width="3">
+      <use href="#star" x="-260" y="240"><animateTransform attributeName="transform" type="translate" values="0 0; 0 -14; 0 0" dur="4s" repeatCount="indefinite"/></use>
+    </g>
+    <use href="#star" x="255" y="228" fill="url(#glass6)" stroke="#ffd166" stroke-width="3">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 -11; 0 0" dur="3.4s" begin=".6s" repeatCount="indefinite"/>
+    </use>
+    <use href="#star" x="-90" y="140" fill="#ffd166" opacity=".95" transform="scale(1)">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 -18; 0 0" dur="3.8s" begin=".3s" repeatCount="indefinite" additive="sum"/>
+    </use>
+    <use href="#star" x="80" y="128" fill="#ffd166" opacity=".9" transform="scale(.78)">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 -12; 0 0" dur="4.4s" begin="1s" repeatCount="indefinite" additive="sum"/>
+    </use>
+    <use href="#star" x="-420" y="120" fill="url(#glass6)" stroke="#ffd166" stroke-width="3" transform="scale(.7)">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 -10; 0 0" dur="3.6s" begin="1.4s" repeatCount="indefinite" additive="sum"/>
+    </use>
+  </g>
+</svg>
