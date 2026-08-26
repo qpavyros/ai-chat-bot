@@ -194,7 +194,10 @@
       // منبثقة، Safari ITP، متصفحات الموبايل) وبيطلع خطأ عام مش مفيد للزبون. الـredirect
       // بيشتغل بكل مكان، والنتيجة بتنقرا من getRedirectResult() فوق لما الصفحة ترجع تحمّل.
       var provider = new firebase.auth.GoogleAuthProvider();
-      firebase.auth().signInWithRedirect(provider);
+      // signInWithRedirect بيرمي استثناء فوري (بلا أي navigation) لو في خطأ إعداد قبل ما
+      // يوصل لـGoogle أصلاً (مثلاً auth/unauthorized-domain) — لازم .catch() هون، مش بس
+      // على getRedirectResult فوق يلي بتتعامل مع الرجوع من Google بس.
+      firebase.auth().signInWithRedirect(provider).catch(function (err) { handleFirebaseError(err); });
     });
 
     document.getElementById("forgot-password-link").addEventListener("click", function (e) {
