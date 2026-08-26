@@ -4,38 +4,38 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>تسجيل الدخول — لوحة المشغّل</title>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="/public/tailwind.css" rel="stylesheet" />
 <style>
-  :root { --teal: #0f766e; --teal-dark: #115e59; --bg: #f9fafb; --fg: #1a1a1a; --border: #e5e7eb; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: "IBM Plex Sans Arabic", -apple-system, "Segoe UI", Tahoma, sans-serif;
-    background: var(--bg); color: var(--fg); display: flex; align-items: center; justify-content: center;
-    min-height: 100vh; margin: 0;
-  }
-  .card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 32px; width: 100%; max-width: 360px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-  h1 { font-size: 1.2rem; margin: 0 0 20px; text-align: center; color: var(--teal-dark); }
-  label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: #4b5563; }
-  input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 14px; }
-  input:focus { outline: 2px solid var(--teal); border-color: var(--teal); }
-  button { width: 100%; padding: 11px; background: var(--teal); color: white; border: none; border-radius: 8px; font-size: 0.95rem; cursor: pointer; }
-  button:hover { background: var(--teal-dark); }
-  button:disabled { opacity: 0.6; cursor: not-allowed; }
-  .error { color: #b91c1c; font-size: 0.85rem; margin-bottom: 12px; min-height: 1em; }
-  @media (prefers-color-scheme: dark) {
-    body { background: #0b0f0e; color: #e5e7eb; }
-    .card { background: #12181a; border-color: #263033; }
-    input { background: #0e1516; border-color: #263033; color: #e5e7eb; }
-  }
+  body { font-family: "IBM Plex Sans Arabic", sans-serif; }
+  .banner-error { background:#ffdad6; color:#93000a; padding:10px 14px; border-radius:0.6rem; font-size:13px; min-height:0; display:none; }
+  .banner-error.show { display:block; }
+  .spinner { display:none; width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite; }
+  .loading .spinner { display:inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
-<body>
-  <form class="card" id="loginForm">
-    <h1>🔒 لوحة تحكم المشغّل</h1>
-    <label for="password">كلمة السر</label>
-    <input type="password" id="password" name="password" autofocus required>
-    <div class="error" id="error"></div>
-    <button type="submit" id="submitBtn">دخول</button>
-  </form>
+<body class="bg-background min-h-screen flex items-center justify-center p-4">
+
+<form class="bg-surface-container-lowest rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.10)] border border-outline-variant p-8 w-full max-w-[380px]" id="loginForm">
+  <div class="text-center mb-6">
+    <h1 class="font-headline-lg text-[22px] font-bold text-primary mb-1">ساعدني AI</h1>
+    <h2 class="font-headline-md text-[17px] font-semibold text-on-surface">لوحة تحكم المشغّل</h2>
+    <p class="text-sm text-on-surface-variant mt-1">الرجاء إدخال كلمة السر للمتابعة</p>
+  </div>
+
+  <label class="block text-sm font-medium text-on-surface-variant mb-2" for="password">كلمة السر</label>
+  <input class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-3 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all mb-4" type="password" id="password" name="password" autofocus required>
+
+  <div class="banner-error" id="error"></div>
+
+  <button type="submit" id="submitBtn" class="w-full bg-primary hover:bg-primary-container text-on-primary font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-60 mt-2">
+    <span class="spinner"></span>
+    <span>دخول</span>
+  </button>
+</form>
 
 <script>
   var form = document.getElementById('loginForm');
@@ -44,8 +44,10 @@
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    errorEl.classList.remove('show');
     errorEl.textContent = '';
     submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
     var password = document.getElementById('password').value;
 
     fetch('/admin/login', {
@@ -55,16 +57,20 @@
     })
       .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
       .then(function (result) {
-        submitBtn.disabled = false;
         if (result.ok) {
           window.location.href = '/admin';
-        } else {
-          errorEl.textContent = result.data.error || 'صار خطأ';
+          return;
         }
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        errorEl.textContent = result.data.error || 'صار خطأ';
+        errorEl.classList.add('show');
       })
       .catch(function () {
         submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
         errorEl.textContent = 'تعذّر الاتصال بالسيرفر';
+        errorEl.classList.add('show');
       });
   });
 </script>
