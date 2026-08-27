@@ -1,0 +1,17 @@
+{
+  "userId": "admin-preview",
+  "firstSeenAt": "2026-08-26T19:34:41.951Z",
+  "lastMessage": "شو ساعات الدوام؟",
+  "lastMessageAt": "2026-08-26T19:34:41.951Z",
+  "history": [
+    {
+      "role": "user",
+      "content": "شو ساعات الدوام؟"
+    },
+    {
+      "role": "assistant",
+      "content": "أهلين! دوامنا السبت للخميس من ٩ الصبح لـ٥ بعد الظهر، والجمعة إجازة. بدك تحجز موعد؟"
+    }
+  ],
+  "facts": []
+}

@@ -1,0 +1,23 @@
+{
+  "id": "dukkanatek-2",
+  "displayName": "dukkanatek",
+  "language": "ar-LB",
+  "tone": "مهذب، واضح، جمل قصيرة، ما بيوعد بشي مش أكيد منه",
+  "escalation": {
+    "phone": "+96181956972",
+    "contactMethod": "التواصل مع فريق dukkanatek مباشرة",
+    "notifyWhatsapp": "+96181956972"
+  },
+  "contactEmail": "pavyros@gmail.com",
+  "allowedOrigins": [],
+  "status": "active",
+  "plan": "trial",
+  "knowledgeReviewed": false,
+  "createdAt": "2026-08-26T10:13:25.390Z",
+  "trialExpiresAt": "2026-09-02T10:13:27.372Z",
+  "source": {
+    "type": "excel",
+    "value": "products-test.xlsx",
+    "ingestedAt": "2026-08-26T10:13:25.389Z"
+  }
+}

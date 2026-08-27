@@ -57,6 +57,6 @@
   "discordBotToken": null,
   "referredByClientId": null,
   "onboardingChecklist": {
-    "waba_created": false
+    "waba_created": true
   }
 }

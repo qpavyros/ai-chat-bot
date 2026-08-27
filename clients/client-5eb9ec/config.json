@@ -1,0 +1,25 @@
+{
+  "id": "client-5eb9ec",
+  "displayName": "صيدلية الحمام",
+  "language": "ar-LB",
+  "tone": "مهذب، واضح، جمل قصيرة، ما بيوعد بشي مش أكيد منه",
+  "escalation": {
+    "phone": "+96181956972",
+    "contactMethod": "التواصل مع فريق صيدلية الحمام مباشرة",
+    "notifyWhatsapp": "+96181956972"
+  },
+  "contactEmail": "pavyros@gmail.com",
+  "allowedOrigins": [],
+  "status": "active",
+  "plan": "trial",
+  "knowledgeReviewed": false,
+  "createdAt": "2026-08-26T09:55:15.992Z",
+  "trialExpiresAt": "2026-09-02T09:55:29.797Z",
+  "source": {
+    "type": "excel",
+    "value": "products-test.xlsx",
+    "ingestedAt": "2026-08-26T09:55:15.992Z"
+  },
+  "telegramBotToken": "8954693637:AAGkbB4gkiHemZCr6OvD2k49i9RVYFnA-3M",
+  "telegramWebhookSecret": "bf17981fd5ab69b3480967cb5e2bedec974a4e60e35c50bd"
+}

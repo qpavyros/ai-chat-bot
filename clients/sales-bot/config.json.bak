@@ -1,0 +1,24 @@
+{
+  "id": "sales-bot",
+  "displayName": "Sales Bot",
+  "language": "ar-LB",
+  "tone": "حماسي وودود، خبير ترويج، بيقرأ نية الزائر ويحاول يقنعه يجرب المنصة",
+  "escalation": {
+    "phone": "96181956972",
+    "contactMethod": "التواصل مع فريق Sales Bot مباشرة",
+    "notifyWhatsapp": "96181956972"
+  },
+  "contactEmail": "pavyros@gmail.com",
+  "allowedOrigins": [],
+  "status": "preview",
+  "plan": "manual",
+  "knowledgeReviewed": false,
+  "createdAt": "2026-08-26T14:00:20.599Z",
+  "trialExpiresAt": "2026-09-02T14:00:20.599Z",
+  "source": {
+    "type": "manual",
+    "value": "internal-platform-bot",
+    "ingestedAt": "2026-08-26T14:00:20.599Z"
+  },
+  "salesMode": true
+}

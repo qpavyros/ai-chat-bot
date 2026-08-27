@@ -1,0 +1,17 @@
+{
+  "userId": "cache-test-a",
+  "firstSeenAt": "2026-08-26T14:26:33.023Z",
+  "lastMessage": "?? ????????",
+  "lastMessageAt": "2026-08-26T14:26:33.023Z",
+  "history": [
+    {
+      "role": "user",
+      "content": "?? ????????"
+    },
+    {
+      "role": "assistant",
+      "content": "أهلين! شلون فيني ساعدك اليوم؟ 😊"
+    }
+  ],
+  "facts": []
+}

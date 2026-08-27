@@ -10,3 +10,27 @@
 {"at":"2026-08-10T19:33:22.635Z","action":"login","clientId":null,"details":{"ip":"::1"}}
 {"at":"2026-08-12T10:11:46.886Z","action":"login","clientId":null,"details":{"ip":"::ffff:127.0.0.1"}}
 {"at":"2026-08-12T13:28:12.368Z","action":"login","clientId":null,"details":{"ip":"::ffff:127.0.0.1"}}
+{"at":"2026-08-26T10:02:44.731Z","action":"export_conversations","clientId":"client-5eb9ec","details":{}}
+{"at":"2026-08-26T10:20:52.642Z","action":"delete_bot","clientId":"dukkanatek-2","details":{"archivedTo":"dukkanatek-2-1787739652517","byUser":"k6avt4VEM7P5RfmMhu6lhVALuME3"}}
+{"at":"2026-08-26T14:17:15.282Z","action":"billing_request","clientId":"client-5eb9ec","details":{"kind":"topup","target":"medium","byUser":"k6avt4VEM7P5RfmMhu6lhVALuME3"}}
+{"at":"2026-08-26T15:11:14.415Z","action":"billing_request","clientId":"client-1f7aaa","details":{"kind":"upgrade","target":"growth","byUser":"1Tdgi1SM6nQRmR9u6agjlVGZizY2"}}
+{"at":"2026-08-26T18:57:28.436Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:01:19.611Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:13:36.661Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:14:07.401Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:17:37.110Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:20:47.926Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:22:56.869Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:23:41.507Z","action":"login_failed","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:23:51.412Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:31:23.975Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:33:54.131Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:34:17.806Z","action":"update_config","clientId":"example-clinic","details":{"fields":["id","displayName","whatsappPhoneNumberId","language","tone","escalation","appointments","status","tier","referredByClientId","knowledgeSourceLabel","telegramBotToken","discordBotToken","widget","businessHours","voice","salesMode","botPaused","channels","orders","subscriptionExpiresAt"]}}
+{"at":"2026-08-26T19:34:54.093Z","action":"update_config","clientId":"example-clinic","details":{"fields":["id","displayName","whatsappPhoneNumberId","language","tone","escalation","appointments","status","tier","subscriptionExpiresAt","knowledgeSourceLabel","orders","botPaused","salesMode","channels","businessHours","widget","voice","telegramBotToken","discordBotToken","referredByClientId","onboardingChecklist"]}}
+{"at":"2026-08-26T19:34:55.124Z","action":"update_config","clientId":"example-clinic","details":{"fields":["id","displayName","whatsappPhoneNumberId","language","tone","escalation","appointments","status","tier","subscriptionExpiresAt","knowledgeSourceLabel","orders","botPaused","salesMode","channels","businessHours","widget","voice","telegramBotToken","discordBotToken","referredByClientId","onboardingChecklist"]}}
+{"at":"2026-08-26T19:40:36.738Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:41:00.410Z","action":"escalation_handled","clientId":"client-5eb9ec","details":{"escalationId":"2525f9849ce6ec7f"}}
+{"at":"2026-08-26T19:41:12.987Z","action":"escalation_unhandled","clientId":"client-5eb9ec","details":{"escalationId":"2525f9849ce6ec7f"}}
+{"at":"2026-08-26T19:46:09.198Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}
+{"at":"2026-08-26T19:46:27.608Z","action":"create_client","clientId":"client-ea112d","details":{"companyName":"اختبار إضافة أدمن"}}
+{"at":"2026-08-26T19:51:09.583Z","action":"login","clientId":null,"details":{"ip":"104.22.40.133"}}

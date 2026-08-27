@@ -1,0 +1,10 @@
+{
+  "2026-08-26": {
+    "messages": 18,
+    "llmCalls": 14,
+    "tokensIn": 44403,
+    "tokensOut": 907,
+    "escalations": 1,
+    "cacheHits": 2
+  }
+}
