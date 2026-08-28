@@ -16,6 +16,7 @@ const usageLedger = require("../services/usageLedger");
 const auditLog = require("../services/auditLog");
 const escalationLog = require("../services/escalationLog");
 const escalationHandled = require("../services/escalationHandled");
+const handoff = require("../services/handoff");
 const orders = require("../services/orders");
 const customers = require("../services/customers");
 const { safeId } = require("../services/safe-id");
@@ -546,5 +547,34 @@ router.get(
   })
 );
 
+// ===== التدخل البشري المباشر (Live Agent Takeover) =====
+
+router.get("/dashboard/bots/:clientId/api/takeover-status", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
+  const pausedList = handoff.getPausedConversations(req.clientId);
+  res.json({ pausedUsers: pausedList });
+}));
+
+router.post("/dashboard/bots/:clientId/api/pause-user", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
+  const { userId, hours } = req.body || {};
+  if (!userId || typeof userId !== "string") {
+    return res.status(400).json({ error: { code: "invalid_input", message: "معرف الزبون مطلوب" } });
+  }
+  const pauseHours = Number(hours) > 0 ? Number(hours) : 24;
+  handoff.pauseBotUser(req.clientId, userId.trim(), pauseHours);
+  auditLog.record("pause_bot_user", req.clientId, { userId: userId.trim(), hours: pauseHours });
+  res.json({ ok: true, message: `تم إيقاف البوت للزبون ${userId.trim()} لمدة ${pauseHours} ساعة` });
+}));
+
+router.post("/dashboard/bots/:clientId/api/resume-user", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
+  const { userId } = req.body || {};
+  if (!userId || typeof userId !== "string") {
+    return res.status(400).json({ error: { code: "invalid_input", message: "معرف الزبون مطلوب" } });
+  }
+  handoff.resumeBotUser(req.clientId, userId.trim());
+  auditLog.record("resume_bot_user", req.clientId, { userId: userId.trim() });
+  res.json({ ok: true, message: `تم إعادة تفعيل البوت للزبون ${userId.trim()}` });
+}));
+
 module.exports = router;
+
 

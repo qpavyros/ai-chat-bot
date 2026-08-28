@@ -113,14 +113,30 @@ function buildServiceIssueReply(client) {
   );
 }
 
+function pauseBotUser(clientId, endUserId, hours = config.handoff.pauseHours) {
+  conversation.pauseForHandoff(clientId, endUserId, hours * 60 * 60 * 1000);
+}
+
+function resumeBotUser(clientId, endUserId) {
+  conversation.resumeFromHandoff(clientId, endUserId);
+}
+
+function getPausedConversations(clientId) {
+  return conversation.getPausedConversations(clientId);
+}
+
 module.exports = {
   ESCALATE_MARKER,
   extractEscalationMarker,
   checkKeywordEscalation,
   handleEscalation,
   isConversationPaused,
+  pauseBotUser,
+  resumeBotUser,
+  getPausedConversations,
   buildEscalationReply,
   buildStillWaitingReply,
   buildServiceIssueReply,
   notifyCapReached,
 };
+

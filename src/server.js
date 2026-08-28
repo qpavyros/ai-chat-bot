@@ -158,3 +158,8 @@ registerTelegramWebhooks();
 // بوتات ديسكورد — اتصالات gateway دائمة لكل عميل عنده توكن (DM بس)
 const discordGateway = require("./services/discordGateway");
 discordGateway.syncAll();
+
+// التقرير الأسبوعي الملخص عبر واتساب
+const weeklyDigest = require("./services/weeklyDigest");
+weeklyDigest.scheduleWeeklyDigests();
+
