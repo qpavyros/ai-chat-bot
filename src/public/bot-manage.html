@@ -644,6 +644,7 @@
 
     var passwordModal = document.getElementById("password-modal");
     var nameModal = document.getElementById("confirm-name-modal");
+    var recentAuthToken = null;
 
     function openNameConfirm() {
       document.getElementById("confirm-name-target").textContent = state.displayName;
@@ -662,7 +663,11 @@
           // مستخدم Google بدون كلمة سر أصلاً — إعادة التحقق بنافذة Google بدل حقل كلمة سر.
           setLoading(deleteBtn, true);
           user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider())
-            .then(openNameConfirm)
+            .then(function () { return user.getIdToken(true); })
+            .then(function (token) {
+              recentAuthToken = token;
+              openNameConfirm();
+            })
             .catch(function (err) {
               alert(err.code === "auth/popup-closed-by-user" ? "ألغيت التحقق." : "ما قدرنا نتحقق من هويتك — جرب كمان مرة.");
             })
@@ -692,9 +697,10 @@
         .then(function () {
           var user = firebase.auth().currentUser;
           var cred = firebase.auth.EmailAuthProvider.credential(user.email, password);
-          return user.reauthenticateWithCredential(cred);
+          return user.reauthenticateWithCredential(cred).then(function () { return user.getIdToken(true); });
         })
-        .then(function () {
+        .then(function (token) {
+          recentAuthToken = token;
           passwordModal.classList.remove("show");
           openNameConfirm();
         })
@@ -706,6 +712,7 @@
 
     document.getElementById("confirm-name-cancel").addEventListener("click", function () {
       nameModal.classList.remove("show");
+      recentAuthToken = null;
     });
 
     document.getElementById("confirm-name-input").addEventListener("input", function () {
@@ -716,7 +723,7 @@
       var btn = this;
       setLoading(btn, true);
       fetch("/dashboard/bots/" + encodeURIComponent(clientId), {
-        method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" },
+        method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json", "X-Recent-Auth-Token": recentAuthToken || "" },
         body: JSON.stringify({ confirmName: document.getElementById("confirm-name-input").value }),
       })
         .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })

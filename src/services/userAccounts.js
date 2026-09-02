@@ -82,6 +82,17 @@ async function clearOnboardingState(uid) {
   await userRef(uid).update({ onboarding: null });
 }
 
+async function verifyRecentIdentity(idToken, expectedUid, { now, maxAgeMs }) {
+  try {
+    const decoded = await auth.verifyIdToken(idToken);
+    if (decoded.uid !== expectedUid || typeof decoded.auth_time !== "number") return false;
+    const authTimeMs = decoded.auth_time * 1000;
+    return authTimeMs <= now && now - authTimeMs <= maxAgeMs;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   ensureProfile,
   createSessionCookie,
@@ -90,4 +101,5 @@ module.exports = {
   attachBot,
   setOnboardingState,
   clearOnboardingState,
+  verifyRecentIdentity,
 };

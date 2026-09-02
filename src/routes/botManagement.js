@@ -377,22 +377,57 @@ router.delete("/dashboard/bots/:clientId", requireUserAuth, requireOwnedBot, asy
     return res.status(400).json({ error: { code: "name_mismatch", message: "اسم البوت ما طابق — الحذف اتلغى" } });
   }
 
+  const recentAuthToken = req.header("X-Recent-Auth-Token");
+  if (!recentAuthToken) {
+    return res.status(403).json({ error: { code: "missing_recent_auth", message: "توثيق الهوية مفقود" } });
+  }
+
+  const ok = await userAccounts.verifyRecentIdentity(recentAuthToken, req.uid, { now: Date.now(), maxAgeMs: 5 * 60 * 1000 });
+  if (!ok) {
+    return res.status(403).json({ error: { code: "invalid_recent_auth", message: "توثيق الهوية منتهي أو غير صالح" } });
+  }
+
   const clientDir = safeWrite.clientDir(req.clientId);
-  const archiveDir = path.join(__dirname, "..", "..", "data", "deleted-bots", `${req.clientId}-${Date.now()}`);
+  const dataDir = safeWrite.dataDir(req.clientId);
+  const now = Date.now();
+  const archiveBase = path.join(__dirname, "..", "..", "data", "deleted-bots", `${req.clientId}-${now}`);
+  const archiveClientDir = path.join(archiveBase, "client");
+  const archiveDataDir = path.join(archiveBase, "data");
+  const manifestPath = path.join(archiveBase, "manifest.json");
 
   // النقل والأرشفة جوا قفل العميل — بدون هيك، رسالة حية واصلة بنفس اللحظة كانت ممكن
   // تكتب على مجلد اننقل للتو (rename خارج القفل سابقًا = سباق حقيقي).
   await safeWrite.withClientLock(req.clientId, async () => {
-    fs.mkdirSync(path.dirname(archiveDir), { recursive: true });
-    fs.renameSync(clientDir, archiveDir);
+    fs.mkdirSync(archiveBase, { recursive: true });
+    fs.renameSync(clientDir, archiveClientDir);
+    if (fs.existsSync(dataDir)) {
+      fs.renameSync(dataDir, archiveDataDir);
+    }
+    fs.writeFileSync(manifestPath, JSON.stringify({
+      ownerUid: req.uid,
+      deletionTime: now,
+      expiryTime: now + 30 * 24 * 60 * 60 * 1000,
+      originalClientDir: clientDir,
+      originalDataDir: dataDir
+    }));
   });
 
   const profile = await userAccounts.getProfile(req.uid);
   const remainingBots = profile.bots.filter((id) => id !== req.clientId);
   const { db } = require("../services/firebaseAdmin");
-  await db.collection("users").doc(req.uid).update({ bots: remainingBots });
 
-  auditLog.record("delete_bot", req.clientId, { archivedTo: path.basename(archiveDir), byUser: req.uid });
+  try {
+    await db.collection("users").doc(req.uid).update({ bots: remainingBots });
+  } catch (err) {
+    await safeWrite.withClientLock(req.clientId, async () => {
+      if (fs.existsSync(archiveClientDir)) fs.renameSync(archiveClientDir, clientDir);
+      if (fs.existsSync(archiveDataDir)) fs.renameSync(archiveDataDir, dataDir);
+      if (fs.existsSync(archiveBase)) fs.rmSync(archiveBase, { recursive: true, force: true });
+    });
+    throw err;
+  }
+
+  auditLog.record("delete_bot", req.clientId, { archivedTo: path.basename(archiveBase), byUser: req.uid });
   res.json({ ok: true });
 }));
 
