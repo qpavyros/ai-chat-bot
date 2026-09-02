@@ -15,6 +15,9 @@ const app = express();
 // خلف Nginx reverse proxy (VPS) — لازم حتى req.secure يعكس X-Forwarded-Proto الصحيح
 // (كوكي جلسة /admin بتحطّ Secure بس لو الطلب فعليًا وصل عبر HTTPS، راجع src/routes/admin.js)
 app.set("trust proxy", 1);
+const security = require("./middleware/requestSecurity");
+app.use(security.applySecurityHeaders);
+
 // verify بيحتفظ بالجسم الخام (req.rawBody) — لازمنا للتحقق من توقيع X-Hub-Signature-256
 // تبع ويبهوك واتساب (HMAC على البايتات الخام بالضبط، مش على النص المُعاد parse-ه).
 app.use(

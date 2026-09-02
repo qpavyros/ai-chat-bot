@@ -150,6 +150,7 @@ function loadUserAuth(stubs = {}) {
       clearSessionCookie() {},
     },
     "../middleware/asyncHandler": require("../../src/middleware/asyncHandler"),
+    "../middleware/requestSecurity": { requireSameOrigin: (_req, _res, next) => next() },
     "../services/rateLimit": { checkLimit: () => ({ allowed: true }) },
     "../services/userAccounts": { verifySessionCookie: async () => null },
     ...stubs,

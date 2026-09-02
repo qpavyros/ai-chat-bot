@@ -44,13 +44,15 @@ function validClientIdOr400(req, res) {
   }
 }
 
+const { requireSameOrigin } = require("../middleware/requestSecurity");
+
 // بوابة API — أي endpoint تحت /admin/api لازم جلسة صالحة، وإلا 401 (الواجهة بتتصرف بالتحويل لتسجيل الدخول)
 function requireAuth(req, res, next) {
   const cookies = parseCookies(req);
   if (!adminAuth.validateSession(cookies[SESSION_COOKIE])) {
     return res.status(401).json({ error: "غير مسجّل دخول" });
   }
-  next();
+  requireSameOrigin(req, res, next);
 }
 
 // ---------- صفحات ----------
@@ -138,7 +140,7 @@ router.post("/admin/login", express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
-router.post("/admin/logout", (req, res) => {
+router.post("/admin/logout", requireSameOrigin, (req, res) => {
   const cookies = parseCookies(req);
   adminAuth.destroySession(cookies[SESSION_COOKIE]);
   clearSessionCookie(res, SESSION_COOKIE);

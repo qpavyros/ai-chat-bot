@@ -15,6 +15,8 @@ const router = express.Router();
 const SESSION_COOKIE = "user_session";
 const SESSION_TTL_MS = config.userAccounts.sessionTtlHours * 60 * 60 * 1000;
 
+const { requireSameOrigin } = require("../middleware/requestSecurity");
+
 // Middleware — بيستخدمه أي route تاني (dashboard, بند إدارة بوت) محتاج تسجيل دخول حساب مستخدم.
 async function requireUserAuth(req, res, next) {
   try {
@@ -22,7 +24,7 @@ async function requireUserAuth(req, res, next) {
     const uid = await userAccounts.verifySessionCookie(cookies[SESSION_COOKIE]);
     if (!uid) return res.status(401).json({ error: { code: "not_authenticated", message: "غير مسجّل دخول" } });
     req.uid = uid;
-    next();
+    requireSameOrigin(req, res, next);
   } catch (err) {
     next(err);
   }
@@ -86,7 +88,7 @@ router.post("/auth/session", async (req, res) => {
   }
 });
 
-router.post("/auth/logout", (req, res) => {
+router.post("/auth/logout", requireSameOrigin, (req, res) => {
   clearSessionCookie(res, SESSION_COOKIE);
   res.json({ ok: true });
 });

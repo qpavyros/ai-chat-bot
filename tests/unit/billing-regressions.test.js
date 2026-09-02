@@ -161,6 +161,7 @@ function createHarness(initialVfs = null) {
   stubs["./clientConfigSchema"] = stubs["../services/clientConfigSchema"];
   stubs["./clientEligibility"] = stubs["../services/clientEligibility"];
   stubs["../middleware/asyncHandler"] = require('../../src/middleware/asyncHandler');
+  stubs["../middleware/requestSecurity"] = { requireSameOrigin: (_req, _res, next) => next() };
   if(fs.existsSync(path.join(basePath,'services/billing.js'))) stubs['../services/billing']=stubs['./billing']=loadRealModule('services/billing.js');
   stubs["../services/credits"] = stubs["./credits"] = loadRealModule('services/credits.js');
   
