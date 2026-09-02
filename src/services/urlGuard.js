@@ -93,7 +93,11 @@ async function assertSafePublicUrl(rawUrl) {
     throw new Error("الرابط بيشاور على عنوان شبكة داخلية/محجوز — مرفوض");
   }
 
-  return parsed;
+  if (addresses.length === 0) {
+    throw new Error("لا يوجد عناوين صالحة");
+  }
+
+  return { parsedUrl: parsed, addresses };
 }
 
 // ⚠️ حد معروف ومقصود: الفحص أعلاه بيصير قبل الاتصال الفعلي بلحظات — نافذة نظرية لهجوم
@@ -106,7 +110,8 @@ async function safeGet(url, { depth = 0 } = {}) {
     throw new Error("عدد إعادات التوجيه تجاوز الحد المسموح");
   }
 
-  const safeUrl = await assertSafePublicUrl(url);
+  const { parsedUrl: safeUrl, addresses } = await assertSafePublicUrl(url);
+  const pinned = addresses[0];
 
   // مواقع كتير (خصوصًا اللي وراء Cloudflare أو حماية bot بسيطة) بترفض أي طلب بـ
   // User-Agent افتراضي لمكتبات HTTP (axios/curl/إلخ) بـ403 — مو استهداف لنا تحديدًا،
@@ -117,6 +122,10 @@ async function safeGet(url, { depth = 0 } = {}) {
     maxRedirects: 0,
     maxContentLength: MAX_CONTENT_BYTES,
     validateStatus: (status) => status >= 200 && status < 400,
+    lookup: (hostname, options, callback) => {
+      const cb = typeof options === "function" ? options : callback;
+      cb(null, pinned.address, pinned.family);
+    },
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
