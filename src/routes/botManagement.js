@@ -132,39 +132,44 @@ router.get("/dashboard/bots/:clientId/api/summary", requireUserAuth, requireOwne
 router.post("/dashboard/bots/:clientId/api/settings", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
   const { voiceEnabled, salesMode, businessHours, widget } = req.body || {};
 
-  const updated = { ...req.clientConfig };
+  await safeWrite.updateClientConfig(req.clientId, async (existing) => {
+    const updated = { ...existing };
 
-  if (typeof voiceEnabled === "boolean") {
-    updated.voice = { ...updated.voice, enabled: voiceEnabled };
-  }
-
-  if (typeof salesMode === "boolean") {
-    updated.salesMode = salesMode;
-  }
-
-  if (businessHours && typeof businessHours === "object") {
-    const start = /^\d{2}:\d{2}$/.test(businessHours.start) ? businessHours.start : "09:00";
-    const end = /^\d{2}:\d{2}$/.test(businessHours.end) ? businessHours.end : "17:00";
-    const days = Array.isArray(businessHours.days)
-      ? businessHours.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
-      : [0, 1, 2, 3, 4, 5, 6];
-    const byDay = {};
-    for (let d = 0; d <= 6; d += 1) {
-      if (days.includes(d)) byDay[String(d)] = { start, end };
+    if (typeof voiceEnabled === "boolean") {
+      updated.voice = { ...updated.voice, enabled: voiceEnabled };
     }
-    updated.businessHours = { enabled: Boolean(businessHours.enabled), start, end, byDay };
-  }
 
-  if (widget && typeof widget === "object") {
-    const accentColor = /^#[0-9a-fA-F]{6}$/.test(widget.accentColor) ? widget.accentColor : (updated.widget?.accentColor || "#00288e");
-    const title = typeof widget.title === "string" ? widget.title.trim().slice(0, 60) : (updated.widget?.title || "");
-    const suggestions = Array.isArray(widget.suggestions)
-      ? widget.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 6)
-      : (updated.widget?.suggestions || []);
-    updated.widget = { accentColor, title, suggestions };
-  }
+    if (typeof salesMode === "boolean") {
+      updated.salesMode = salesMode;
+    }
 
-  await safeWrite.safeWriteJSON(req.clientId, "config.json", updated, { validate: validateClientConfig });
+    if (businessHours && typeof businessHours === "object") {
+      const start = /^\d{2}:\d{2}$/.test(businessHours.start) ? businessHours.start : "09:00";
+      const end = /^\d{2}:\d{2}$/.test(businessHours.end) ? businessHours.end : "17:00";
+      const days = Array.isArray(businessHours.days)
+        ? businessHours.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+        : [0, 1, 2, 3, 4, 5, 6];
+      const byDay = {};
+      for (let d = 0; d <= 6; d += 1) {
+        if (days.includes(d)) byDay[String(d)] = { start, end };
+      }
+      updated.businessHours = { enabled: Boolean(businessHours.enabled), start, end, byDay };
+    }
+
+    if (widget && typeof widget === "object") {
+      const accentColor = /^#[0-9a-fA-F]{6}$/.test(widget.accentColor) ? widget.accentColor : (updated.widget?.accentColor || "#00288e");
+      const title = typeof widget.title === "string" ? widget.title.trim().slice(0, 60) : (updated.widget?.title || "");
+      const suggestions = Array.isArray(widget.suggestions)
+        ? widget.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 6)
+        : (updated.widget?.suggestions || []);
+      updated.widget = { accentColor, title, suggestions };
+    }
+
+    return updated;
+  }, { validate: validateClientConfig });
+
+  require("../services/replyCache").clear(req.clientId);
+
   res.json({ ok: true });
 }));
 
@@ -213,38 +218,44 @@ router.post("/dashboard/bots/:clientId/api/billing-request", requireUserAuth, re
 // ===== قنوات إضافية: تلغرام وديسكورد — نفس منطق تسجيل الأدمن بالضبط (admin.js) =====
 router.post("/dashboard/bots/:clientId/api/integrations", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
   const { telegramBotToken, discordBotToken } = req.body || {};
-  const existing = req.clientConfig;
-  const updated = { ...existing };
+  let updatedTelegram = false;
+  let updatedDiscord = false;
 
-  if (typeof telegramBotToken === "string") {
-    updated.telegramBotToken = telegramBotToken.trim() || undefined;
-    if (updated.telegramBotToken && !existing.telegramWebhookSecret) {
-      updated.telegramWebhookSecret = crypto.randomBytes(24).toString("hex");
+  const finalConfig = await safeWrite.updateClientConfig(req.clientId, async (existing) => {
+    const updated = { ...existing };
+    updatedTelegram = false;
+    updatedDiscord = false;
+
+    if (typeof telegramBotToken === "string") {
+      updated.telegramBotToken = telegramBotToken.trim() || undefined;
+      if (updated.telegramBotToken && !existing.telegramWebhookSecret) {
+        updated.telegramWebhookSecret = crypto.randomBytes(24).toString("hex");
+      }
+      if (updated.telegramBotToken !== existing.telegramBotToken) updatedTelegram = true;
     }
-  }
-  if (typeof discordBotToken === "string") {
-    updated.discordBotToken = discordBotToken.trim() || undefined;
-  }
-
-  await safeWrite.safeWriteJSON(req.clientId, "config.json", updated, { validate: validateClientConfig });
+    if (typeof discordBotToken === "string") {
+      updated.discordBotToken = discordBotToken.trim() || undefined;
+      if (updated.discordBotToken !== existing.discordBotToken) updatedDiscord = true;
+    }
+    return updated;
+  }, { validate: validateClientConfig });
 
   if (
-    updated.telegramBotToken &&
-    updated.telegramBotToken !== existing.telegramBotToken &&
+    updatedTelegram && finalConfig.telegramBotToken &&
     config.provisioning.publicBaseUrl.startsWith("https://")
   ) {
     const telegram = require("../services/telegram");
     telegram
       .setWebhook(
-        updated.telegramBotToken,
+        finalConfig.telegramBotToken,
         `${config.provisioning.publicBaseUrl}/webhook/telegram/${req.clientId}`,
-        updated.telegramWebhookSecret || ""
+        finalConfig.telegramWebhookSecret || ""
       )
       .then(() => console.log(`[telegram] تسجّل ويبهوك "${req.clientId}" بعد تحديث العميل`))
       .catch((err) => console.error(`[telegram] فشل تسجيل "${req.clientId}" من العميل:`, err.response?.data || err.message));
   }
 
-  if (updated.discordBotToken !== existing.discordBotToken) {
+  if (updatedDiscord) {
     try {
       require("../services/discordGateway").syncAll();
     } catch (err) {
@@ -266,19 +277,22 @@ router.post("/dashboard/bots/:clientId/api/info", requireUserAuth, requireOwnedB
     return res.status(400).json({ error: { code: "invalid_contact_method", message: "طريقة التواصل مطلوبة" } });
   }
 
-  const updated = {
-    ...req.clientConfig,
-    displayName: String(displayName).trim(),
-    tone: tone ? String(tone).trim() : req.clientConfig.tone,
-    escalation: {
-      ...req.clientConfig.escalation,
-      phone: escalationPhone ? String(escalationPhone).trim() : req.clientConfig.escalation.phone,
-      contactMethod: String(escalationContactMethod).trim(),
-      notifyWhatsapp: notifyWhatsapp ? String(notifyWhatsapp).trim() : req.clientConfig.escalation.notifyWhatsapp,
-    },
-  };
+  await safeWrite.updateClientConfig(req.clientId, async (existing) => {
+    return {
+      ...existing,
+      displayName: String(displayName).trim(),
+      tone: tone ? String(tone).trim() : existing.tone,
+      escalation: {
+        ...existing.escalation,
+        phone: escalationPhone ? String(escalationPhone).trim() : existing.escalation?.phone,
+        contactMethod: String(escalationContactMethod).trim(),
+        notifyWhatsapp: notifyWhatsapp ? String(notifyWhatsapp).trim() : existing.escalation?.notifyWhatsapp,
+      },
+    };
+  }, { validate: validateClientConfig });
 
-  await safeWrite.safeWriteJSON(req.clientId, "config.json", updated, { validate: validateClientConfig });
+  require("../services/replyCache").clear(req.clientId);
+
   res.json({ ok: true });
 }));
 
@@ -329,23 +343,27 @@ router.post("/dashboard/bots/:clientId/api/knowledge", requireUserAuth, requireO
 router.post("/dashboard/bots/:clientId/api/channels", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
   const { botPaused, whatsappEnabled, webEnabled } = req.body || {};
 
-  const updated = {
-    ...req.clientConfig,
-    botPaused: typeof botPaused === "boolean" ? botPaused : Boolean(req.clientConfig.botPaused),
-    channels: {
-      whatsapp: { enabled: typeof whatsappEnabled === "boolean" ? whatsappEnabled : req.clientConfig.channels?.whatsapp?.enabled !== false },
-      web: { enabled: typeof webEnabled === "boolean" ? webEnabled : req.clientConfig.channels?.web?.enabled !== false },
-    },
-  };
+  await safeWrite.updateClientConfig(req.clientId, async (existing) => {
+    return {
+      ...existing,
+      botPaused: typeof botPaused === "boolean" ? botPaused : Boolean(existing.botPaused),
+      channels: {
+        ...existing.channels,
+        whatsapp: { ...existing.channels?.whatsapp, enabled: typeof whatsappEnabled === "boolean" ? whatsappEnabled : existing.channels?.whatsapp?.enabled !== false },
+        web: { ...existing.channels?.web, enabled: typeof webEnabled === "boolean" ? webEnabled : existing.channels?.web?.enabled !== false },
+      },
+    };
+  }, { validate: validateClientConfig });
 
-  await safeWrite.safeWriteJSON(req.clientId, "config.json", updated, { validate: validateClientConfig });
   res.json({ ok: true });
 }));
 
 // ===== فصل واتساب نهائياً =====
 router.post("/dashboard/bots/:clientId/api/disconnect-whatsapp", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
-  const { whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappRegistrationPin, ...rest } = req.clientConfig;
-  await safeWrite.safeWriteJSON(req.clientId, "config.json", rest, { validate: validateClientConfig });
+  await safeWrite.updateClientConfig(req.clientId, async (existing) => {
+    const { whatsappPhoneNumberId, whatsappBusinessAccountId, whatsappRegistrationPin, ...rest } = existing;
+    return rest;
+  }, { validate: validateClientConfig });
   res.json({ ok: true });
 }));
 

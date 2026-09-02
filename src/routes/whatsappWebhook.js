@@ -159,7 +159,17 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
     }
 
     // ===== تحويل الصوتي لنص (لو رسالة صوتية) — بعدها المسار مطابق للنص تمامًا =====
+    const preflight = messageGate.preflightAbuse(client, "whatsapp", fromNumber);
+    if (!preflight.allowed) {
+      console.warn(`[whatsapp] عميل "${client.id}" منع بالسقف (${preflight.reason}) مبكرا — بعتنا رسالة تحويل`);
+      await whatsapp.sendTextMessage(fromNumber, phoneNumberId, handoff.buildServiceIssueReply(client));
+      markProcessed(message.id);
+      return;
+    }
+
     let userText;
+    let preflightPermit = preflight.permit;
+
     if (isText) {
       userText = message.text.body;
     } else {
@@ -181,7 +191,12 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
 
       // Meta بتوفر مدة الصوت بالثواني — منفحص قبل ما ننزل ولا ندفع للمزود
       const durationSec = Math.ceil(message.audio?.duration || message.voice?.duration || 30);
-      const voiceGate = await messageGate.meterVoice(client, durationSec);
+      const voiceGate = await messageGate.meterVoice(client, durationSec, {
+        channel: "whatsapp",
+        sessionId: fromNumber,
+        operationId: message.id,
+        permit: preflightPermit
+      });
       if (!voiceGate.allowed) {
         await whatsapp.sendTextMessage(fromNumber, phoneNumberId, handoff.buildServiceIssueReply(client));
         markProcessed(message.id);
@@ -195,10 +210,18 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
         if (!transcript || !transcript.trim()) throw new Error("نص فارغ من التحويل");
         userText = `[رسالة صوتية]: ${transcript.trim()}`;
       } catch (err) {
+        if (voiceGate.reservation) {
+          await messageGate.refundVoiceReservation(client, voiceGate.reservation);
+        }
         console.error("[whatsapp] فشل تحويل الصوتي:", err.response?.data || err.message);
         await whatsapp.sendTextMessage(fromNumber, phoneNumberId, handoff.buildServiceIssueReply(client));
         markProcessed(message.id);
         return;
+      }
+
+      // وصول نص صحيح يعني إن خدمة الصوت نفّذت عملها؛ لا نسترد الحجز لو فشل التثبيت لاحقًا.
+      if (voiceGate.reservation) {
+        await messageGate.commitVoiceReservation(client, voiceGate.reservation);
       }
     }
 
@@ -208,6 +231,7 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
       channel: "whatsapp",
       endUserId: fromNumber,
       userText,
+      permit: preflightPermit,
     });
 
     if (result.kind === "blocked") {

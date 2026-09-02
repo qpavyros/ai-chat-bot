@@ -458,29 +458,65 @@
   });
 
   // ===== دفعة/شحن رصيد =====
+  function withIdempotency(clientId, action, btnEl, requestFn) {
+    if (btnEl.disabled) return Promise.reject(new Error("Request in flight"));
+    btnEl.disabled = true;
+    var sessionKey = "idem_" + clientId + "_" + action;
+    var idemKey = sessionStorage.getItem(sessionKey);
+    if (!idemKey) {
+      idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      sessionStorage.setItem(sessionKey, idemKey);
+    }
+    
+    return requestFn(idemKey).then(function(res) {
+      sessionStorage.removeItem(sessionKey);
+      btnEl.disabled = false;
+      return res;
+    }).catch(function(err) {
+      btnEl.disabled = false;
+      throw err;
+    });
+  }
+
   document.getElementById("record-payment-btn").addEventListener("click", function () {
+    var btn = this;
     var banner = document.getElementById("payment-banner");
     banner.innerHTML = '<div class="banner success">جاري التسجيل...</div>';
-    api("/admin/api/clients/" + clientId + "/record-payment", { method: "POST" }).then(function (res) {
+    withIdempotency(clientId, "record-payment", btn, function(idemKey) {
+      return api("/admin/api/clients/" + clientId + "/record-payment", { 
+        method: "POST",
+        headers: { "Idempotency-Key": idemKey }
+      });
+    }).then(function (res) {
       var msg = "تسجّلت ✓ — الاشتراك ممدّد لـ" + res.nextExpiry;
       if (res.referralEligible) msg += " — 🎁 مكافأة إحالة صارت مستحقة.";
       banner.innerHTML = '<div class="banner success">' + esc(msg) + '</div>';
       loadClient();
     }).catch(function (err) {
-      banner.innerHTML = '<div class="banner danger">' + esc(err.message) + '</div>';
+      if (err.message !== "Request in flight") {
+        banner.innerHTML = '<div class="banner danger">' + esc(err.message) + '</div>';
+      }
     });
   });
 
   document.getElementById("topup-btn").addEventListener("click", function () {
+    var btn = this;
     var banner = document.getElementById("payment-banner");
     var pack = document.getElementById("topup-pack-select").value;
     banner.innerHTML = '<div class="banner success">جاري الشحن...</div>';
-    api("/admin/api/clients/" + clientId + "/topup", { method: "POST", body: JSON.stringify({ pack: pack }) })
-      .then(function (res) {
+    withIdempotency(clientId, "topup_" + pack, btn, function(idemKey) {
+      return api("/admin/api/clients/" + clientId + "/topup", { 
+        method: "POST", 
+        headers: { "Idempotency-Key": idemKey },
+        body: JSON.stringify({ pack: pack }) 
+      });
+    }).then(function (res) {
         banner.innerHTML = '<div class="banner success">⚡ انضاف ' + esc(res.added) + ' رسالة — الرصيد: ' + esc(res.balance) + '</div>';
       })
       .catch(function (err) {
-        banner.innerHTML = '<div class="banner danger">' + esc(err.message) + '</div>';
+        if (err.message !== "Request in flight") {
+          banner.innerHTML = '<div class="banner danger">' + esc(err.message) + '</div>';
+        }
       });
   });
 

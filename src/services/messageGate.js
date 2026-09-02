@@ -65,18 +65,55 @@ function notifyCapReachedOncePerDay(client, reason) {
   }
 }
 
+// permit for preflight
+const crypto = require("crypto");
+const PERMIT_SECRET = crypto.randomBytes(32);
+function signPermit(clientId, sessionId) {
+  const hmac = crypto.createHmac("sha256", PERMIT_SECRET);
+  hmac.update(`${clientId}:${sessionId || ""}`);
+  return { clientId, sessionId, sig: hmac.digest("hex") };
+}
+function verifyPermit(client, sessionId, permit) {
+  if (!permit || permit.clientId !== client.id || permit.sessionId !== sessionId) return false;
+  const expected = signPermit(client.id, sessionId);
+  return permit.sig === expected.sig;
+}
+
 /**
  * عدادات الاستهلاك + السقوف — استدعيها فقط قبل استدعاء DeepSeek فعليًا.
  * ⚠️ فيها آثار جانبية (زيادة عدادات) — نداء ثانٍ لنفس الرسالة بيعدّ مرتين.
  * @param {string|null} sessionId معرّف جلسة الودجت (باقي القنوات ما عندها سقف جلسة منفصل)
+ * @param {object} [permit] تصريح preflight لتجنب عد الإساءة مرتين
  */
-async function meterAndCap(client, channel, sessionId = null) {
+async function meterAndCap(client, channel, sessionId = null, permit = null) {
+  const staticEval = evaluateStatic(client, channel);
+  if (!staticEval.allowed) return staticEval;
+
   const usageLedger = require("./usageLedger");
   const credits = require("./credits");
   const rateLimit = require("./rateLimit");
   const usageAnomaly = require("./usageAnomaly");
   
   const channelKey = channelKeyOf(channel);
+
+  const skipAbuse = verifyPermit(client, sessionId, permit);
+
+  if (!skipAbuse) {
+    if (channelKey === "web") {
+      const sessionUsage = rateLimit.checkLimit(`session-msgs:${client.id}:${sessionId}`, {
+        max: config.abuseGuard.sessionHourlyMax,
+        windowMs: 60 * 60 * 1000,
+      });
+      if (!sessionUsage.allowed) return { allowed: false, reason: "session_cap" };
+    }
+
+    const dailyUsage = rateLimit.checkLimit(`client-daily-msgs:${client.id}`, {
+      max: config.abuseGuard.clientDailyMax,
+      windowMs: DAILY_WINDOW_MS,
+    });
+    usageAnomaly.checkAndAlert(client, dailyUsage);
+    if (!dailyUsage.allowed) return { allowed: false, reason: "daily_cap" };
+  }
 
   // سقف رسائل الفترة التجريبية — يحدّ كلفة أي بوت مهجور تلقائيًا (على القناتين).
   // رصيد الشحن بينفع يعديه كمان — تجربة موفقة = فرصة تحويل لشحن/اشتراك.
@@ -92,24 +129,8 @@ async function meterAndCap(client, channel, sessionId = null) {
       notifyCapReachedOncePerDay(client, "trial_cap");
       return { allowed: false, reason: "trial_cap" };
     }
+    return { allowed: true };
   }
-
-  // سقف الجلسة بالساعة — للودجت بس (بالويبهوك رقم الهاتف هو الجلسة والسقف اليومي يغطيه)
-  if (channelKey === "web") {
-    const sessionUsage = rateLimit.checkLimit(`session-msgs:${client.id}:${sessionId}`, {
-      max: config.abuseGuard.sessionHourlyMax,
-      windowMs: 60 * 60 * 1000,
-    });
-    if (!sessionUsage.allowed) return { allowed: false, reason: "session_cap" };
-  }
-
-  // سقف يومي عام لكل الخطط — حماية إساءة مستقلة عن الباقات
-  const dailyUsage = rateLimit.checkLimit(`client-daily-msgs:${client.id}`, {
-    max: config.abuseGuard.clientDailyMax,
-    windowMs: DAILY_WINDOW_MS,
-  });
-  usageAnomaly.checkAndAlert(client, dailyUsage);
-  if (!dailyUsage.allowed) return { allowed: false, reason: "daily_cap" };
 
   // سقف شهري حسب الباقة — عملاء يدويا قدما بدون tier ما بيتأثروا.
   // لو السقف منع: منجرب نخصم من رصيد الشحن (top-up) قبل ما نقول "خلص" — هيدا يلي
@@ -136,38 +157,131 @@ async function meterAndCap(client, channel, sessionId = null) {
  * سقف ثواني الصوت الشهري للعميل، أو null لو بلا سقف (عميل يدوي بدون tier).
  */
 function voiceCapSeconds(client) {
+  if (client.plan === "trial") return config.provisioning.trialVoiceMinutes * 60;
   const planDef = client.tier ? config.plans[client.tier] : null;
   if (planDef?.monthlyVoiceMinutes != null) return planDef.monthlyVoiceMinutes * 60;
-  if (client.plan === "trial") return config.provisioning.trialVoiceMinutes * 60;
   return null;
 }
 
 /**
- * عدّاد دقائق/ثواني تحويل الصوت لنص — ينادى قبل تنزيل الميديا ونداء Groq حتى ما
- * ننصرف على صوت راح ينرفض. durationSec من حقل audio.duration تبع Meta.
+ * حاجز الإساءة المبكر — يستدعى قبل التنزيل والنسخ. 
+ * يُرجع تصريحًا (permit) يُمرر لاحقًا لتجنب العد المزدوج.
  */
-async function meterVoice(client, durationSec) {
+function preflightAbuse(client, channel, sessionId = null) {
+  const staticEval = evaluateStatic(client, channel);
+  if (!staticEval.allowed) return staticEval;
+
+  const rateLimit = require("./rateLimit");
+  const usageAnomaly = require("./usageAnomaly");
+  const channelKey = channelKeyOf(channel);
+
+  if (channelKey === "web") {
+    const sessionUsage = rateLimit.checkLimit(`session-msgs:${client.id}:${sessionId}`, {
+      max: config.abuseGuard.sessionHourlyMax,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!sessionUsage.allowed) return { allowed: false, reason: "session_cap" };
+  }
+
+  const dailyUsage = rateLimit.checkLimit(`client-daily-msgs:${client.id}`, {
+    max: config.abuseGuard.clientDailyMax,
+    windowMs: DAILY_WINDOW_MS,
+  });
+  usageAnomaly.checkAndAlert(client, dailyUsage);
+  if (!dailyUsage.allowed) return { allowed: false, reason: "daily_cap" };
+
+  return { allowed: true, permit: signPermit(client.id, sessionId) };
+}
+
+/**
+ * حجز ثواني الصوت مع preflight إساءة
+ */
+async function meterVoice(client, durationSec, options = {}) {
+  const { channel = "whatsapp", sessionId, operationId, permit: providedPermit } = options;
+  const staticEval = evaluateStatic(client, channel);
+  if (!staticEval.allowed) return staticEval;
+
+  if (typeof durationSec !== "number" || !Number.isFinite(durationSec) || durationSec <= 0) {
+    return { allowed: false, reason: "invalid_duration" };
+  }
+
+  const skipAbuse = verifyPermit(client, sessionId, providedPermit);
+  let permit = providedPermit;
+
+  if (!skipAbuse) {
+    const rateLimit = require("./rateLimit");
+    const usageAnomaly = require("./usageAnomaly");
+    const channelKey = channelKeyOf(channel);
+
+    if (channelKey === "web") {
+      const sessionUsage = rateLimit.checkLimit(`session-msgs:${client.id}:${sessionId}`, {
+        max: config.abuseGuard.sessionHourlyMax,
+        windowMs: 60 * 60 * 1000,
+      });
+      if (!sessionUsage.allowed) return { allowed: false, reason: "session_cap" };
+    }
+
+    const dailyUsage = rateLimit.checkLimit(`client-daily-msgs:${client.id}`, {
+      max: config.abuseGuard.clientDailyMax,
+      windowMs: DAILY_WINDOW_MS,
+    });
+    usageAnomaly.checkAndAlert(client, dailyUsage);
+    if (!dailyUsage.allowed) return { allowed: false, reason: "daily_cap" };
+
+    permit = signPermit(client.id, sessionId);
+  }
+
+  const cap = voiceCapSeconds(client);
+  if (cap == null) return { allowed: true, permit, capSeconds: null };
+
   const usageLedger = require("./usageLedger");
   const credits = require("./credits");
   
-  const cap = voiceCapSeconds(client);
-  if (cap == null) return { allowed: true, capSeconds: null };
-
-  const usage = await usageLedger.checkAndIncrement(`voice-seconds-monthly:${client.id}`, {
-    max: cap,
-    windowMs: MONTHLY_WINDOW_MS,
-    amount: durationSec,
-  });
-
-  if (!usage.allowed) {
-    // نفس فلسفة الرسائل: رصيد الشحن بينقذ الموقف قبل رسالة "خلص باقتك"
-    if (await credits.consumeOne(client.id)) {
-      return { allowed: true, capSeconds: cap, usedCredit: true };
+  try {
+    const res = await usageLedger.reserve(`voice-seconds-monthly:${client.id}`, {
+      max: cap,
+      windowMs: MONTHLY_WINDOW_MS,
+      amount: durationSec,
+      operationId: operationId
+    });
+    if (res.allowed) {
+      return { allowed: true, permit, capSeconds: cap, reservation: { kind: 'ledger', id: res.reservationId } };
     }
-    return { allowed: false, reason: "voice_cap", capSeconds: cap };
+  } catch (e) {
+    if (e.message !== "conflict" && e.message !== "duplicate") {
+      console.warn("Reserve voice error", e);
+    }
   }
 
-  return { allowed: true, capSeconds: cap };
+  // Fallback to top-up
+  const creditRes = await credits.reserveOne(client.id, operationId);
+  if (creditRes && creditRes.allowed) {
+    return { allowed: true, permit, capSeconds: cap, usedCredit: true, reservation: { kind: 'credit', id: creditRes.reservationId } };
+  }
+
+  return { allowed: false, reason: "voice_cap", capSeconds: cap };
 }
 
-module.exports = { evaluateStatic, meterAndCap, meterVoice, voiceCapSeconds };
+async function commitVoiceReservation(client, reservation) {
+  if (!reservation) return;
+  if (reservation.kind === 'ledger') {
+    const usageLedger = require("./usageLedger");
+    await usageLedger.commitReservation(reservation.id);
+  } else if (reservation.kind === 'credit') {
+    const credits = require("./credits");
+    await credits.commitReservation(client.id, reservation.id);
+  }
+}
+
+async function refundVoiceReservation(client, reservation) {
+  if (!reservation) return;
+  if (reservation.kind === 'ledger') {
+    const usageLedger = require("./usageLedger");
+    await usageLedger.refundReservation(reservation.id);
+  } else if (reservation.kind === 'credit') {
+    const credits = require("./credits");
+    await credits.refundReservation(client.id, reservation.id);
+  }
+}
+
+module.exports = { evaluateStatic, meterAndCap, preflightAbuse, meterVoice, commitVoiceReservation, refundVoiceReservation, voiceCapSeconds };

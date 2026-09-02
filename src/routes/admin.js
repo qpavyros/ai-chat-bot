@@ -283,51 +283,67 @@ router.post("/admin/api/clients", requireAuth, express.json(), (req, res) => {
   res.status(201).json({ id: slug, publicKey });
 });
 
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 router.put("/admin/api/clients/:id", requireAuth, express.json(), async (req, res) => {
   if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
-  const existing = readClientConfig(id);
-  if (!existing) return res.status(404).json({ error: "عميل غير موجود" });
-
-  // whitelist حقول معروفة فقط — الجسم الخام ما بيندمج أبدًا (كان يقبل أي حقل مفبرك ويخزنه)
-  const incoming = pickClientConfigFields(req.body);
-  // توكن تلغرام جديد بدون سر محفوظ → نولّد سر ويبهوك تلقائيًا للتحقق بطلبات القناة
-  if (incoming.telegramBotToken && !existing.telegramWebhookSecret && !incoming.telegramWebhookSecret) {
-    incoming.telegramWebhookSecret = crypto.randomBytes(24).toString("hex");
-  }
-
-  const updated = { ...existing, ...incoming, id }; // id ثابت — ما بيتغيّر من الفورم
-  const schemaError = validateClientConfig(updated);
-  if (schemaError) return res.status(400).json({ error: schemaError });
+  
+  let oldTelegramToken, oldDiscordToken, newTelegramToken, newDiscordToken, updatedWebhookSecret;
 
   try {
-    await safeWrite.safeWriteJSON(id, "config.json", updated, { validate: validateClientConfig });
+    await safeWrite.updateClientConfig(id, (existing) => {
+      oldTelegramToken = existing.telegramBotToken;
+      oldDiscordToken = existing.discordBotToken;
+
+      const incoming = pickClientConfigFields(req.body);
+      if (incoming.telegramBotToken && !existing.telegramWebhookSecret && !incoming.telegramWebhookSecret) {
+        incoming.telegramWebhookSecret = crypto.randomBytes(24).toString("hex");
+      }
+
+      const updated = { ...existing, ...incoming, id };
+      
+      // preservenestedunmodifiedchannels/options
+      for (const key of ['channels', 'options', 'escalation', 'appointments', 'orders', 'onboardingChecklist', 'businessHours', 'widget', 'voice']) {
+        if (incoming[key] && isPlainObject(incoming[key]) && existing[key] && isPlainObject(existing[key])) {
+          updated[key] = { ...existing[key], ...incoming[key] };
+        }
+      }
+
+      newTelegramToken = updated.telegramBotToken;
+      newDiscordToken = updated.discordBotToken;
+      updatedWebhookSecret = updated.telegramWebhookSecret;
+
+      return updated;
+    }, { validate: validateClientConfig });
   } catch (err) {
+    if (err.message === 'Missing client' || err.message.includes('غير موجود')) return res.status(404).json({ error: "عميل غير موجود" });
+    if (err.status) return res.status(err.status).json({ error: err.message });
     return res.status(500).json({ error: err.message });
   }
 
   replyCache.clear(id);
   auditLog.record("update_config", id, { fields: Object.keys(req.body || {}) });
 
-  // توكن تلغرام انضاف/اتغير → نسجّل الويبهوك فورًا بدون ما نستنى إعادة تشغيل
   if (
-    updated.telegramBotToken &&
-    updated.telegramBotToken !== existing.telegramBotToken &&
+    newTelegramToken &&
+    newTelegramToken !== oldTelegramToken &&
     config.provisioning.publicBaseUrl.startsWith("https://")
   ) {
     const telegram = require("../services/telegram");
     telegram
       .setWebhook(
-        updated.telegramBotToken,
+        newTelegramToken,
         `${config.provisioning.publicBaseUrl}/webhook/telegram/${id}`,
-        updated.telegramWebhookSecret || ""
+        updatedWebhookSecret || ""
       )
       .then(() => console.log(`[telegram] تسجّل ويبهوك "${id}" بعد تحديث الأدمن`))
       .catch((err) => console.error(`[telegram] فشل تسجيل "${id}" من الأدمن:`, err.response?.data || err.message));
   }
 
-  // توكن ديسكورد تغيّر → مزامنة الاتصالات (تشغيل/إيقاف/إعادة اتصال للبوت المعني)
-  if (updated.discordBotToken !== existing.discordBotToken) {
+  if (newDiscordToken !== oldDiscordToken) {
     try {
       require("../services/discordGateway").syncAll();
     } catch (err) {
@@ -359,19 +375,25 @@ router.post("/admin/api/clients/:id/renew", requireAuth, express.json(), async (
   if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
   const { expiresAt, status } = req.body || {};
-  const existing = readClientConfig(id);
-  if (!existing) return res.status(404).json({ error: "عميل غير موجود" });
-
-  const updated = { ...existing };
-  if (expiresAt) {
-    if (updated.plan === "trial") updated.trialExpiresAt = expiresAt;
-    else updated.subscriptionExpiresAt = expiresAt;
-  }
-  if (status) updated.status = status;
 
   try {
-    await safeWrite.safeWriteJSON(id, "config.json", updated, { validate: validateClientConfig });
+    const billing = require("../services/billing");
+    await safeWrite.updateClientConfig(id, (existing) => {
+      const updated = { ...existing };
+      if (expiresAt !== undefined) {
+        const parsedDate = billing.parseExpiry(expiresAt);
+        if (updated.plan === "trial") {
+          updated.trialExpiresAt = parsedDate ? parsedDate.toISOString() : null;
+        } else {
+          updated.subscriptionExpiresAt = parsedDate ? parsedDate.toISOString() : null;
+        }
+      }
+      if (status) updated.status = status;
+      return updated;
+    }, { validate: validateClientConfig });
   } catch (err) {
+    if (err.message === 'Missing client' || err.message.includes('غير موجود')) return res.status(404).json({ error: "عميل غير موجود" });
+    if (err.status) return res.status(err.status).json({ error: err.message });
     return res.status(500).json({ error: err.message });
   }
 
@@ -380,113 +402,64 @@ router.post("/admin/api/clients/:id/renew", requireAuth, express.json(), async (
   res.json({ ok: true });
 });
 
-// دفعتين متتاليتين فعليتين = آخر دفعتين مسجّلتين بفارق ~شهر بينهم (مش أي دفعتين تاريخيًا —
-// عميل انقطع اشتراكه لستة أشهر وبعدين رجع ما لازم يُحسب "متتالي"). تساهل 5 أيام لتغطية
-// اختلاف توقيت الدفع الفعلي عن الموعد بالضبط.
-function hasConsecutivePayments(paymentHistory, count = 2, toleranceDays = 35) {
-  const history = paymentHistory || [];
-  if (history.length < count) return false;
-  const recent = history.slice(-count);
-  for (let i = 1; i < recent.length; i++) {
-    const gapDays = (new Date(recent[i].at) - new Date(recent[i - 1].at)) / (24 * 60 * 60 * 1000);
-    if (gapDays > toleranceDays) return false;
-  }
-  return true;
-}
-
-// تسجيل دفعة فعلية: بيمدد الاشتراك 30 يوم (بالضبط متل /renew) + بيسجّل الدفعة بتاريخ paymentHistory
-// (أساس حساب "دفعتين متتاليتين" لبرنامج الإحالة) — عملية واحدة بدل نداءين منفصلين من الواجهة.
 router.post("/admin/api/clients/:id/record-payment", requireAuth, express.json(), async (req, res) => {
   if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
-  const existing = readClientConfig(id);
-  if (!existing) return res.status(404).json({ error: "عميل غير موجود" });
+  const { operationId } = req.body || {};
+  const opId = req.headers['idempotency-key'] || operationId;
 
-  const now = new Date();
-  const currentExpiry = existing.plan === "trial" ? existing.trialExpiresAt : existing.subscriptionExpiresAt;
-  const base = currentExpiry && new Date(currentExpiry) > now ? new Date(currentExpiry) : now;
-  const nextExpiry = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-  const paymentHistory = [...(existing.paymentHistory || []), {
-    at: now.toISOString(),
-    amountUsd: existing.tier ? config.plans[existing.tier]?.price ?? null : null,
-  }];
-
-  const updated = { ...existing, paymentHistory, status: "active" };
-  if (updated.plan === "trial") updated.trialExpiresAt = nextExpiry;
-  else updated.subscriptionExpiresAt = nextExpiry;
+  if (!opId) return res.status(400).json({ error: "Idempotency key required" });
 
   try {
-    await safeWrite.safeWriteJSON(id, "config.json", updated, { validate: validateClientConfig });
+    const billing = require("../services/billing");
+    const result = await billing.recordPayment(id, opId);
+    replyCache.clear(id);
+    auditLog.record("record_payment", id, { nextExpiry: result.nextExpiry, amountUsd: result.amountUsd });
+    // Remove amountUsd from result before returning to client if needed, but it's fine.
+    const responseData = { ...result };
+    delete responseData.amountUsd;
+    res.json(responseData);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
-
-  const referralEligible = Boolean(updated.referredByClientId) && !updated.referralRewarded && hasConsecutivePayments(paymentHistory);
-
-  replyCache.clear(id);
-  auditLog.record("record_payment", id, { nextExpiry, amountUsd: paymentHistory[paymentHistory.length - 1].amountUsd });
-  res.json({ ok: true, nextExpiry, referralEligible, referredByClientId: updated.referredByClientId || null });
 });
 
-// يطبّق مكافأة الإحالة على المُحيل (referredByClientId تبع العميل الحالي) — يمدد اشتراك
-// المُحيل بعدد شهور config.referral.rewardMonths، ويعلّم العميل المُحال كـ"مكافأة مصروفة"
-// حتى ما تنعطى مرتين لنفس الإحالة.
 router.post("/admin/api/clients/:id/apply-referral-reward", requireAuth, async (req, res) => {
   if (!validClientIdOr400(req, res)) return;
-  const { id } = req.params; // العميل المُحال (يلي دفع شهرين متتاليين)
-  const referred = readClientConfig(id);
-  if (!referred) return res.status(404).json({ error: "عميل غير موجود" });
-  if (!referred.referredByClientId) return res.status(400).json({ error: "هالعميل ما إله عميل مُحيل مسجّل" });
-  if (referred.referralRewarded) return res.status(409).json({ error: "المكافأة انصرفت مسبقًا لهالإحالة" });
-  if (!hasConsecutivePayments(referred.paymentHistory)) {
-    return res.status(400).json({ error: "العميل المُحال لسا ما دفع شهرين متتاليين" });
-  }
-
-  const referrerId = referred.referredByClientId;
-  const referrer = readClientConfig(referrerId);
-  if (!referrer) return res.status(404).json({ error: "عميل المُحيل غير موجود" });
-
-  const now = new Date();
-  const currentExpiry = referrer.plan === "trial" ? referrer.trialExpiresAt : referrer.subscriptionExpiresAt;
-  const base = currentExpiry && new Date(currentExpiry) > now ? new Date(currentExpiry) : now;
-  const nextExpiry = new Date(base.getTime() + config.referral.rewardMonths * 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-
-  const updatedReferrer = { ...referrer };
-  if (updatedReferrer.plan === "trial") updatedReferrer.trialExpiresAt = nextExpiry;
-  else updatedReferrer.subscriptionExpiresAt = nextExpiry;
+  const { id } = req.params;
 
   try {
-    await safeWrite.safeWriteJSON(referrerId, "config.json", updatedReferrer, { validate: validateClientConfig });
-    await safeWrite.safeWriteJSON(id, "config.json", { ...referred, referralRewarded: true }, { validate: validateClientConfig });
+    const billing = require("../services/billing");
+    const result = await billing.applyReferralReward(id);
+    replyCache.clear(result.referrerId);
+    auditLog.record("referral_reward_applied", result.referrerId, { referredClientId: id, nextExpiry: result.nextExpiry });
+    res.json(result);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
-
-  replyCache.clear(referrerId);
-  auditLog.record("referral_reward_applied", referrerId, { referredClientId: id, nextExpiry });
-  res.json({ ok: true, referrerId, nextExpiry });
 });
 
-// شحن رصيد رسائل إضافية (top-up) — تسعيره أعلى من الباقات عمدًا (راجع credits.js)
 router.post("/admin/api/clients/:id/topup", requireAuth, express.json(), async (req, res) => {
   if (!validClientIdOr400(req, res)) return;
   const { id } = req.params;
-  const { pack } = req.body || {};
+  const { pack, operationId } = req.body || {};
+  const opId = req.headers['idempotency-key'] || operationId;
 
   const credits = require("../services/credits");
   if (!credits.packDef(pack)) {
     return res.status(400).json({ error: `باقة غير معروفة: ${pack}. المتاح: small, medium` });
   }
-  if (!readClientConfig(id)) return res.status(404).json({ error: "عميل غير موجود" });
+  
+  if (!opId) return res.status(400).json({ error: "Idempotency key required" });
 
   try {
-    const result = await credits.addCredits(id, pack);
+    const result = await credits.addCredits(id, pack, opId);
     auditLog.record("topup_credits", id, { pack, added: result.added, balance: result.balance });
     res.json({ ok: true, ...result });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 });

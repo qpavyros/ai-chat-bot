@@ -24,9 +24,10 @@ const { isWithinBusinessHours } = require("./businessHours");
  *   (ممكن يحمل تفاصيل ديناميكية متل اسم شركة).
  * @param {string} [pageKey] اختياري — معرّف قصير وثابت لنوع الصفحة (راجع data-page-key)،
  *   لتقسيم الكاش بشكل صحيح بدون ما يفلت جواب صفحة عصفحة تانية بنفس السؤال.
+ * @param {object} [permit] اختياري - تصريح preflight متل تبع حجز الصوت عشان نتجاوز عدّ الإساءة مرتين
  * @returns {Promise<{kind:"reply", reply:string, escalated?:boolean}|{kind:"blocked", reason:string}>}
  */
-async function handleInbound({ client, channel, endUserId, userText, onDelta, pageContext = "", pageKey = "" }) {
+async function handleInbound({ client, channel, endUserId, userText, onDelta, pageContext = "", pageKey = "", permit = null }) {
   const gate = messageGate.evaluateStatic(client, channel);
   if (!gate.allowed) {
     return { kind: "blocked", reason: gate.reason };
@@ -74,7 +75,7 @@ async function handleInbound({ client, channel, endUserId, userText, onDelta, pa
 
   // ٤) عدادات وسقوف — بس هلق لما صار واضح إنه رح ينستدعى DeepSeek فعليًا.
   // ردود الكاش والكلمات الجاهزة فوق ما بتستهلك شي (تكلفتهم صفر).
-  const meter = await messageGate.meterAndCap(client, channel, endUserId);
+  const meter = await messageGate.meterAndCap(client, channel, endUserId, permit);
   if (!meter.allowed) {
     return { kind: "blocked", reason: meter.reason };
   }

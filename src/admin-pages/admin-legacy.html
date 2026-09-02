@@ -749,14 +749,40 @@
     });
   });
 
+  function withIdempotency(clientId, action, btnEl, requestFn) {
+    if (btnEl.disabled) return Promise.reject(new Error("Request in flight"));
+    btnEl.disabled = true;
+    var sessionKey = "idem_" + clientId + "_" + action;
+    var idemKey = sessionStorage.getItem(sessionKey);
+    if (!idemKey) {
+      idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      sessionStorage.setItem(sessionKey, idemKey);
+    }
+    
+    return requestFn(idemKey).then(function(res) {
+      sessionStorage.removeItem(sessionKey);
+      btnEl.disabled = false;
+      return res;
+    }).catch(function(err) {
+      btnEl.disabled = false;
+      throw err;
+    });
+  }
+
   document.getElementById('recordPaymentBtn').addEventListener('click', function () {
+    var btn = this;
     var statusEl = document.getElementById('paymentStatus');
     statusEl.style.color = '';
     statusEl.textContent = 'جاري التسجيل...';
 
     // الخادم بيحسب تاريخ التمديد (+30 يوم من الانتهاء الحالي لو بالمستقبل، أو من اليوم)
     // وبيسجّل الدفعة بـpaymentHistory (أساس حساب استحقاق مكافأة الإحالة).
-    api('/admin/api/clients/' + currentEditId + '/record-payment', { method: 'POST' }).then(function (res) {
+    withIdempotency(currentEditId, "record-payment", btn, function(idemKey) {
+      return api('/admin/api/clients/' + currentEditId + '/record-payment', { 
+        method: 'POST',
+        headers: { "Idempotency-Key": idemKey }
+      });
+    }).then(function (res) {
       document.getElementById('f_expiresAt').value = res.nextExpiry;
       document.getElementById('f_status').value = 'active';
       statusEl.style.color = 'var(--ok)';
@@ -777,18 +803,27 @@
         currentEditConfig = data.config;
       });
     }).catch(function (err) {
-      statusEl.style.color = 'var(--danger)';
-      statusEl.textContent = err.message;
+      if (err.message !== "Request in flight") {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = err.message;
+      }
     });
   });
 
   // ---------- شحن رصيد رسائل إضافية (top-up) ----------
   document.getElementById('topupBtn').addEventListener('click', function () {
+    var btn = this;
     var statusEl = document.getElementById('paymentStatus');
     statusEl.style.color = '';
     statusEl.textContent = 'جاري الشحن...';
     var pack = document.getElementById('f_topupPack').value;
-    api('/admin/api/clients/' + currentEditId + '/topup', { method: 'POST', body: JSON.stringify({ pack: pack }) })
+    withIdempotency(currentEditId, "topup_" + pack, btn, function(idemKey) {
+      return api('/admin/api/clients/' + currentEditId + '/topup', { 
+        method: 'POST', 
+        headers: { "Idempotency-Key": idemKey },
+        body: JSON.stringify({ pack: pack }) 
+      });
+    })
       .then(function (res) {
         statusEl.style.color = 'var(--ok)';
         statusEl.textContent = '⚡ انضاف ' + res.added + ' رسالة — الرصيد: ' + res.balance;
@@ -797,8 +832,10 @@
         loadClients();
       })
       .catch(function (err) {
-        statusEl.style.color = 'var(--danger)';
-        statusEl.textContent = err.message;
+        if (err.message !== "Request in flight") {
+          statusEl.style.color = 'var(--danger)';
+          statusEl.textContent = err.message;
+        }
       });
   });
 

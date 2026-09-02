@@ -141,6 +141,7 @@ async function replaceKnowledge(clientId, knowledgeContent, knowledgeFileName) {
 
     safeWrite.rawWriteClientFile(clientId, knowledgeFileName || "source-website.md", knowledgeContent);
   });
+  require("./replyCache").clear(clientId);
 }
 
 // preview → active. الفترة التجريبية تنطلق من هلق (لا من لحظة الإنشاء) — الشركة ممكن تاخد

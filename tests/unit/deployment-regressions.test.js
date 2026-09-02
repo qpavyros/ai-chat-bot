@@ -72,7 +72,7 @@ test("WhatsApp audio and voice media IDs reach transcription and the engine", as
   load("src/routes/whatsappWebhook.js", { express: mock.express, "../config": {}, "../clients/registry": { getClientByWhatsappPhoneNumberId: () => ({ id: "test", escalation: {} }) },
     "../services/whatsapp": { sendTextMessage: async () => {}, downloadMedia: async id => { downloads.push(id); return Buffer.from("audio"); } },
     "../services/transcribe": { isConfigured: () => true, transcribeAudioBuffer: async () => "transcript" }, "../services/handoff": { buildServiceIssueReply: () => "fallback" },
-    "../services/messageGate": { evaluateStatic: (c) => clientEligibility.evaluateClientEligibility(c), meterVoice: async () => ({ allowed: true }) },
+    "../services/messageGate": { evaluateStatic: (c) => clientEligibility.evaluateClientEligibility(c), preflightAbuse: () => ({ allowed: true, permit: {} }), meterVoice: async () => ({ allowed: true }), commitVoiceReservation: async () => {}, refundVoiceReservation: async () => {} },
     "../services/conversationEngine": { handleInbound: async req => { inbound.push(req.userText); return { kind: "reply", reply: "ok" }; } } });
   const handler = mock.rows.find(r => r.method === "post" && r.args[0] === "/webhook").args.at(-1);
   for (const type of ["audio", "voice"]) await handler({ body: { entry: [{ changes: [{ value: { metadata: { phone_number_id: "phone" }, messages: [{ id: type, from: "visitor", type, [type]: { id: type + "-media", duration: 10 } }] } }] }] } }, response());

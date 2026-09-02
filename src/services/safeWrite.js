@@ -137,6 +137,25 @@ async function safeWriteJSON(clientId, fileName, dataObject, { validate } = {}) 
   });
 }
 
+// تحديث ملف التكوين بأمان دون الكتابة فوق تعديلات متزامنة
+async function updateClientConfig(clientId, updater, { validate } = {}) {
+  return withClientLock(clientId, async () => {
+    const configPath = path.join(clientDir(clientId), "config.json");
+    const current = safeReadJSON(configPath, null);
+    if (!current) throw new Error(`ملف config.json مفقود أو تالف للعميل: ${clientId}`);
+    
+    const nextConfig = await updater(current);
+    
+    if (validate) {
+      const error = validate(nextConfig);
+      if (error) throw new Error(`فشل التحقق: ${error}`);
+    }
+    
+    rawWriteClientFile(clientId, "config.json", JSON.stringify(nextConfig, null, 2));
+    return nextConfig;
+  });
+}
+
 // إنشاء مجلد عميل جديد بالكامل بشكل ذرّي (مجلد مؤقت ثم rename) — نفس نمط provisioning.js،
 // معاد استخدامه هون لعملاء يُضافون يدويًا من الداشبورد (بعكس عملاء التسجيل الذاتي).
 function createClientDirAtomic(clientId, files) {
@@ -168,5 +187,6 @@ module.exports = {
   safeReadJSON,
   safeWriteFile,
   safeWriteJSON,
+  updateClientConfig,
   createClientDirAtomic,
 };
