@@ -34,8 +34,8 @@ router.get("/widget-config/:clientId", (req, res) => {
 //
 // الحواجز الثابتة وشكل أخطاء السقوف HTTP هون، ووسط المعالجة المشترك بconversationEngine.
 router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), async (req, res) => {
+  const client = req.client;
   try {
-    const client = req.client;
     const { message, sessionId } = req.body;
     // اختياري — من data-page-context بالودجت المضمّن، وين الزائر موجود بصفحة المضيف هلق.
     // نص حر من صفحة المضيف مش من الزبون، بس منحدد طول أقصى احتياطًا (ما بيوصل لـsystem prompt خام بلا حد).

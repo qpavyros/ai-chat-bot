@@ -160,6 +160,7 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
       }
 
       try {
+        const mediaId = message.audio?.id || message.voice?.id;
         const audioBuffer = await whatsapp.downloadMedia(mediaId);
         const transcript = await transcribe.transcribeAudioBuffer(audioBuffer);
         if (!transcript || !transcript.trim()) throw new Error("نص فارغ من التحويل");

@@ -107,6 +107,11 @@ function loadClients() {
 
 // التعديل على ملفات .md أو إضافة عميل جديد (ingest/تسجيل ذاتي) بيشتغل بدون إعادة تشغيل
 // السيرفر — البصمة بتتغير والطلب الجاي بيعيد البناء. راجع currentFingerprint فوق.
+function getAllClients() {
+  // Index aliases (phone/public/secret key) point to the same client object.
+  return [...new Set(loadClients().values())];
+}
+
 function getClientById(id) {
   return loadClients().get(id) || null;
 }
@@ -152,6 +157,7 @@ function sanitizeClient(client) {
 }
 
 module.exports = {
+  getAllClients,
   getClientById,
   getClientByWhatsappPhoneNumberId,
   getClientByPublicKey,

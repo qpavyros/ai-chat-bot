@@ -43,9 +43,13 @@ async function sendWeeklyDigests() {
   const clients = registry.getAllClients();
   let sent = 0;
   for (const client of clients) {
-    if (client.botPaused) continue;
-    const res = await sendDigestForClient(client);
-    if (res.ok) sent++;
+    if (client.botPaused || !registry.isServable(client)) continue;
+    try {
+      const res = await sendDigestForClient(client);
+      if (res.ok) sent++;
+    } catch (err) {
+      console.error(`[weeklyDigest] Failed to prepare digest for ${client.id}:`, err.message);
+    }
   }
   return { total: clients.length, sent };
 }
@@ -63,7 +67,11 @@ function scheduleWeeklyDigests() {
     if (day === 0 && hour === 9 && lastSentWeek !== currentWeek) {
       lastSentWeek = currentWeek;
       console.log("[weeklyDigest] جاري إرسال التقرير الأسبوعي للبوتات النشطة...");
-      await sendWeeklyDigests();
+      try {
+        await sendWeeklyDigests();
+      } catch (err) {
+        console.error("[weeklyDigest] Scheduled run failed:", err.message);
+      }
     }
   }, CHECK_INTERVAL);
 }
