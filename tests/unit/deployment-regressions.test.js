@@ -36,7 +36,7 @@ test("registry lists each client once despite phone and API-key aliases", () => 
 });
 
 function digest(stubs = {}, extra = {}) {
-  return load("src/services/weeklyDigest.js", { "../clients/registry": {}, "./whatsapp": {}, "./usageLedger": {}, "./escalationLog": { readRecent: () => [] }, "./escalationHandled": { getHandledIds: () => [] },
+  return load("src/services/weeklyDigest.js", { "../clients/registry": {}, "./whatsapp": {}, "./usageLedger": {}, "./escalationLog": { readRecent: () => [] }, "./escalationHandled": { getHandledIds: () => [] }, "./safeWrite": { updateClientConfig: async () => {} },
     "../config": { plans: {}, whatsapp: { notifySenderPhoneNumberId: "sender" }, provisioning: { publicBaseUrl: "https://example.test" } }, ...stubs }, extra);
 }
 test("digest skips inactive/paused bots and continues after a preparation failure", async () => {

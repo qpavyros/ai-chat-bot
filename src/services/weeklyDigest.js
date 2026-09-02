@@ -4,6 +4,14 @@ const usageLedger = require("./usageLedger");
 const escalationLog = require("./escalationLog");
 const escalationHandled = require("./escalationHandled");
 const config = require("../config");
+const safeWrite = require("./safeWrite");
+
+function getUTCISOWeek(d) {
+  const thurs = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 4 - (d.getUTCDay() || 7)));
+  const firstDay = new Date(Date.UTC(thurs.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((thurs - firstDay) / 86400000) + 1) / 7);
+  return `${thurs.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
 
 async function sendDigestForClient(client) {
   const notifyTo = client.escalation?.notifyWhatsapp;
@@ -54,21 +62,68 @@ async function sendWeeklyDigests() {
   return { total: clients.length, sent };
 }
 
+async function sendScheduledDigestsOnce(now = new Date()) {
+  const week = getUTCISOWeek(now);
+  const clients = registry.getAllClients();
+  let sent = 0;
+  for (const client of clients) {
+    if (client.botPaused || !registry.isServable(client)) continue;
+    
+    if (client.lastWeeklyDigestWeek === week) continue;
+
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    let reserved = false;
+    await safeWrite.updateClientConfig(client.id, (cfg) => {
+      if (cfg.lastWeeklyDigestWeek === week || cfg.pendingDigestWeek === week) {
+        return cfg;
+      }
+      reserved = true;
+      return { ...cfg, pendingDigestWeek: week, pendingDigestToken: token };
+    });
+    
+    if (!reserved) continue;
+
+    try {
+      const res = await sendDigestForClient(client);
+      if (res.ok) {
+        await safeWrite.updateClientConfig(client.id, (cfg) => {
+          if (cfg.pendingDigestToken !== token) return cfg;
+          const { pendingDigestWeek, pendingDigestToken, ...rest } = cfg;
+          return { ...rest, lastWeeklyDigestWeek: week };
+        });
+        client.lastWeeklyDigestWeek = week;
+        sent++;
+      } else {
+        await safeWrite.updateClientConfig(client.id, (cfg) => {
+          if (cfg.pendingDigestToken !== token) return cfg;
+          const { pendingDigestWeek, pendingDigestToken, ...rest } = cfg;
+          return rest;
+        });
+      }
+    } catch (err) {
+      console.error(`[weeklyDigest] Failed to prepare digest for ${client.id}:`, err.message);
+      await safeWrite.updateClientConfig(client.id, (cfg) => {
+        if (cfg.pendingDigestToken !== token) return cfg;
+        const { pendingDigestWeek, pendingDigestToken, ...rest } = cfg;
+        return rest;
+      });
+    }
+  }
+  return { total: clients.length, sent };
+}
+
 function scheduleWeeklyDigests() {
   const CHECK_INTERVAL = 60 * 60 * 1000;
-  let lastSentWeek = -1;
 
   setInterval(async () => {
     const now = new Date();
     const day = now.getDay();
     const hour = now.getHours();
-    const currentWeek = Math.floor(now.getTime() / (7 * 24 * 3600 * 1000));
 
-    if (day === 0 && hour === 9 && lastSentWeek !== currentWeek) {
-      lastSentWeek = currentWeek;
+    if (day === 0 && hour === 9) {
       console.log("[weeklyDigest] جاري إرسال التقرير الأسبوعي للبوتات النشطة...");
       try {
-        await sendWeeklyDigests();
+        await sendScheduledDigestsOnce(now);
       } catch (err) {
         console.error("[weeklyDigest] Scheduled run failed:", err.message);
       }
@@ -80,4 +135,5 @@ module.exports = {
   sendDigestForClient,
   sendWeeklyDigests,
   scheduleWeeklyDigests,
+  sendScheduledDigestsOnce,
 };
