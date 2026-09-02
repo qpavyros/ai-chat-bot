@@ -1,4 +1,4 @@
-﻿// أدوات كوكي الجلسات المشتركة — كانت منسوخة نصيًا بثلاثة روترات (admin/userAuth/portal القديمة)
+// أدوات كوكي الجلسات المشتركة — كانت منسوخة نصيًا بثلاثة روترات (admin/userAuth/portal القديمة)
 // بفروق شكلية فقط، وهيك أي إصلاح أمني (SameSite، Secure خلف proxy...) لازم ينطبق 3 مرات.
 // كل جلسة بتحط HttpOnly + SameSite=Strict دائمًا، وSecure لما الطلب فعليًا وصل عبر HTTPS
 // (trust proxy مفعّل بserver.js فيخلي req.secure يعكس X-Forwarded-Proto).
@@ -10,7 +10,11 @@ function parseCookies(req) {
   header.split(";").forEach((pair) => {
     const idx = pair.indexOf("=");
     if (idx === -1) return;
-    cookies[pair.slice(0, idx).trim()] = decodeURIComponent(pair.slice(idx + 1).trim());
+    try {
+      cookies[pair.slice(0, idx).trim()] = decodeURIComponent(pair.slice(idx + 1).trim());
+    } catch {
+      // Skip undecodable pairs safely
+    }
   });
   return cookies;
 }

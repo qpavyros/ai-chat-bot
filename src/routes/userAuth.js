@@ -17,11 +17,15 @@ const SESSION_TTL_MS = config.userAccounts.sessionTtlHours * 60 * 60 * 1000;
 
 // Middleware — بيستخدمه أي route تاني (dashboard, بند إدارة بوت) محتاج تسجيل دخول حساب مستخدم.
 async function requireUserAuth(req, res, next) {
-  const cookies = parseCookies(req);
-  const uid = await userAccounts.verifySessionCookie(cookies[SESSION_COOKIE]);
-  if (!uid) return res.status(401).json({ error: { code: "not_authenticated", message: "غير مسجّل دخول" } });
-  req.uid = uid;
-  next();
+  try {
+    const cookies = parseCookies(req);
+    const uid = await userAccounts.verifySessionCookie(cookies[SESSION_COOKIE]);
+    if (!uid) return res.status(401).json({ error: { code: "not_authenticated", message: "غير مسجّل دخول" } });
+    req.uid = uid;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 router.get("/auth", (req, res) => {

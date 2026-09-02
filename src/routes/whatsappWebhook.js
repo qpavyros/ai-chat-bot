@@ -129,6 +129,35 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
 
     const fromNumber = message.from;
 
+    // حواجز ثابتة (موقوف/قناة/باقة) — راجع services/messageGate.js
+    const gate = messageGate.evaluateStatic(client, "whatsapp");
+    if (!gate.allowed) {
+      switch (gate.reason) {
+        case "bot_paused":
+          await whatsapp.sendTextMessage(
+            fromNumber,
+            phoneNumberId,
+            `عذرًا، ${client.displayName} متوقف مؤقتًا عن الرد الآلي حاليًا. للتواصل المباشر: ${client.escalation.contactMethod} (${client.escalation.phone})`
+          );
+          break;
+        case "channel_off":
+          await whatsapp.sendTextMessage(
+            fromNumber,
+            phoneNumberId,
+            `عذرًا، ${client.displayName} أوقف الرد الآلي عبر واتساب مؤقتًا. للتواصل المباشر: ${client.escalation.contactMethod} (${client.escalation.phone})`
+          );
+          break;
+        case "client_not_active":
+        case "trial_expired":
+        case "subscription_expired":
+        case "invalid_expiry":
+        default:
+          break;
+      }
+      markProcessed(message.id);
+      return;
+    }
+
     // ===== تحويل الصوتي لنص (لو رسالة صوتية) — بعدها المسار مطابق للنص تمامًا =====
     let userText;
     if (isText) {
@@ -170,27 +199,6 @@ router.post("/webhook", verifyMetaSignature, async (req, res) => {
         await whatsapp.sendTextMessage(fromNumber, phoneNumberId, handoff.buildServiceIssueReply(client));
         markProcessed(message.id);
         return;
-      }
-    }
-
-    // حواجز ثابتة (موقوف/قناة/باقة) — راجع services/messageGate.js
-    const gate = messageGate.evaluateStatic(client, "whatsapp");
-    if (!gate.allowed) {
-      switch (gate.reason) {
-        case "bot_paused":
-          await whatsapp.sendTextMessage(
-            fromNumber,
-            phoneNumberId,
-            `عذرًا، ${client.displayName} متوقف مؤقتًا عن الرد الآلي حاليًا. للتواصل المباشر: ${client.escalation.contactMethod} (${client.escalation.phone})`
-          );
-          return;
-        case "channel_off":
-          await whatsapp.sendTextMessage(
-            fromNumber,
-            phoneNumberId,
-            `عذرًا، ${client.displayName} أوقف الرد الآلي عبر واتساب مؤقتًا. للتواصل المباشر: ${client.escalation.contactMethod} (${client.escalation.phone})`
-          );
-          return;
       }
     }
 

@@ -65,6 +65,10 @@ router.post("/chat/:clientId", authenticate({ allow: ["public", "secret"] }), as
           return res.status(403).json({
             error: { code: "widget_not_included", message: "ودجت الموقع مش متوفر بباقتك الحالية — تواصل معنا للترقية" },
           });
+        default:
+          return res.status(403).json({
+            error: { code: gate.reason, message: "الخدمة غير مفعّلة حالياً" },
+          });
       }
     }
 

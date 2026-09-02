@@ -1,12 +1,9 @@
 // المحرك الموحد لمعالجة رسائل الزبائن — كل القنوات (ودجت/واتساب/تلغرام/ديسكورد) بتمر هون.
 //
 // قبل هالملف، نفس السلسلة كانت منسوخة بين webChat.js وwhatsappWebhook.js وكل قناة جديدة
-// كانت معناها نسخة ثالثة ورابعة. هلق المدخل بيقوم بالحواجز الثابتة وشكل الرد حسب قناته،
-// والوسط المشترك (تصعيد معلّق → كلمة تصعيد → كاش → عدادات → DeepSeek → حفظ → تصعيد) هون
-// بمكان واحد.
-//
-// ما منلمس: الحواجز الثابتة (messageGate.evaluateStatic) وسقوف HTTP للودجت — بتضل عند
-// المدخل لأن شكلها بيختلف جذرياً بين قناة وأخرى (JSON 403 مقابل رسالة واتساب مقابل تجاهل).
+// كانت معناها نسخة ثالثة ورابعة. هلق المحرك يفحص الحواجز الثابتة (messageGate.evaluateStatic)
+// أولاً قبل الإحصائيات، ثم الوسط المشترك (تصعيد معلّق → كلمة تصعيد → كاش → عدادات → DeepSeek → حفظ → تصعيد)
+// بمكان واحد، بينما يتولى المدخل صياغة شكل الرد حسب القناة.
 const deepseek = require("./deepseek");
 const customers = require("./customers");
 const handoff = require("./handoff");
@@ -30,6 +27,11 @@ const { isWithinBusinessHours } = require("./businessHours");
  * @returns {Promise<{kind:"reply", reply:string, escalated?:boolean}|{kind:"blocked", reason:string}>}
  */
 async function handleInbound({ client, channel, endUserId, userText, onDelta, pageContext = "", pageKey = "" }) {
+  const gate = messageGate.evaluateStatic(client, channel);
+  if (!gate.allowed) {
+    return { kind: "blocked", reason: gate.reason };
+  }
+
   stats.increment({ messages: 1 });
 
   // ١) محادثة موقوفة بعد تصعيد سابق — رد "لسا منستنى" بدون DeepSeek ولا عدّ

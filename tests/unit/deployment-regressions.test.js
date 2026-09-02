@@ -5,6 +5,7 @@ const path = require("path");
 const vm = require("vm");
 const cheerio = require("cheerio");
 const root = path.resolve(__dirname, "../..");
+const clientEligibility = require(path.join(root, "src/services/clientEligibility"));
 const source = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 function load(file, stubs, extra = {}) {
@@ -29,7 +30,7 @@ test("registry lists each client once despite phone and API-key aliases", () => 
   }
   const mockFs = { existsSync: (p) => files.has(p), readFileSync: (p) => files.get(p), statSync: () => ({ mtimeMs: 1, size: 1 }),
     readdirSync(p, opts) { return opts ? ["a", "b"].map(name => ({ name, isDirectory: () => true })) : ["config.json", "auth.json", "knowledge.md"]; } };
-  const registry = load("src/clients/registry.js", { fs: mockFs, "../services/apiKeys": {} }, { __dirname: base });
+  const registry = load("src/clients/registry.js", { fs: mockFs, "../services/apiKeys": {}, "../services/clientEligibility": clientEligibility }, { __dirname: base });
   assert.deepEqual(Array.from(registry.getAllClients(), c => c.id), ["a", "b"]);
   assert.equal(registry.getClientByPublicKey("a-public"), registry.getAllClients()[0]);
 });
@@ -59,7 +60,7 @@ test("non-stream chat returns the intended fallback on provider failure", async 
   const mock = router(), client = { id: "test" };
   load("src/routes/webChat.js", { express: mock.express, "../config": { streaming: { enabled: false } }, "../services/rateLimit": {}, "../clients/registry": {},
     "../services/handoff": { buildServiceIssueReply(c) { assert.equal(c, client); return "fallback"; } },
-    "../services/messageGate": { evaluateStatic: () => ({ allowed: true }) }, "../services/conversationEngine": { handleInbound: async () => { throw Error("provider unavailable"); } },
+    "../services/messageGate": { evaluateStatic: (c) => clientEligibility.evaluateClientEligibility(c) }, "../services/conversationEngine": { handleInbound: async () => { throw Error("provider unavailable"); } },
     "../middleware/auth": { authenticate: () => () => {} } });
   const res = response();
   await mock.rows.find(r => r.args[0] === "/chat/:clientId").args.at(-1)({ client, headers: {}, body: { message: "hello", sessionId: "visitor" } }, res);
@@ -71,7 +72,7 @@ test("WhatsApp audio and voice media IDs reach transcription and the engine", as
   load("src/routes/whatsappWebhook.js", { express: mock.express, "../config": {}, "../clients/registry": { getClientByWhatsappPhoneNumberId: () => ({ id: "test", escalation: {} }) },
     "../services/whatsapp": { sendTextMessage: async () => {}, downloadMedia: async id => { downloads.push(id); return Buffer.from("audio"); } },
     "../services/transcribe": { isConfigured: () => true, transcribeAudioBuffer: async () => "transcript" }, "../services/handoff": { buildServiceIssueReply: () => "fallback" },
-    "../services/messageGate": { evaluateStatic: () => ({ allowed: true }), meterVoice: async () => ({ allowed: true }) },
+    "../services/messageGate": { evaluateStatic: (c) => clientEligibility.evaluateClientEligibility(c), meterVoice: async () => ({ allowed: true }) },
     "../services/conversationEngine": { handleInbound: async req => { inbound.push(req.userText); return { kind: "reply", reply: "ok" }; } } });
   const handler = mock.rows.find(r => r.method === "post" && r.args[0] === "/webhook").args.at(-1);
   for (const type of ["audio", "voice"]) await handler({ body: { entry: [{ changes: [{ value: { metadata: { phone_number_id: "phone" }, messages: [{ id: type, from: "visitor", type, [type]: { id: type + "-media", duration: 10 } }] } }] }] } }, response());

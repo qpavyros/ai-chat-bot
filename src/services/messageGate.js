@@ -9,11 +9,8 @@
 // الفلسفة: التقييم بيرجع سبب المنع، والراوتر يقرر شكل الرد (HTTP status للودجت، رسالة واتساب
 // أو تجاهل للويبهوك). ترتيب العدادات نفسه مطابق للنسخ القديمة.
 const config = require("../config");
-const rateLimit = require("./rateLimit");
-const usageLedger = require("./usageLedger");
-const usageAnomaly = require("./usageAnomaly");
-const credits = require("./credits");
-const handoff = require("./handoff");
+
+// Dependencies with side-effects or eager initializations are deferred to where they are used.
 
 const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MONTHLY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -26,13 +23,20 @@ function channelKeyOf(channel) {
   return KNOWN_CHANNELS.has(channel) ? channel : "web";
 }
 
+const { evaluateClientEligibility } = require("./clientEligibility");
+
 /**
  * حواجز ثابتة بدون آثار جانبية — تُفحص على كل رسالة واردة مهما كان مصدر الرد.
  * @param {object} client عميل من registry
  * @param {"web"|"whatsapp"|"telegram"|"discord"} channel
  * @returns {{allowed:true}|{allowed:false,reason:string}}
  */
-function evaluateStatic(client, channel) {
+function evaluateStatic(client, channel, now = Date.now()) {
+  const eligibility = evaluateClientEligibility(client, now);
+  if (!eligibility.allowed) {
+    return eligibility;
+  }
+
   // البوت موقوف كليًا — رد ثابت بدون أي استهلاك
   if (client.botPaused) return { allowed: false, reason: "bot_paused" };
 
@@ -53,6 +57,8 @@ function evaluateStatic(client, channel) {
 // إشعار صاحب البوت مرة وحدة باليوم بالحد الأقصى — بدون هيك كل رسالة زبون مرفوضة بعد الحد
 // كانت رح تبعت واتساب لصاحب البوت (سبام حقيقي بيوم مزدحم).
 function notifyCapReachedOncePerDay(client, reason) {
+  const rateLimit = require("./rateLimit");
+  const handoff = require("./handoff");
   const gate = rateLimit.checkLimit(`cap-notify:${client.id}:${reason}`, { max: 1, windowMs: DAILY_WINDOW_MS });
   if (gate.allowed) {
     handoff.notifyCapReached(client, reason).catch(() => {});
@@ -65,6 +71,11 @@ function notifyCapReachedOncePerDay(client, reason) {
  * @param {string|null} sessionId معرّف جلسة الودجت (باقي القنوات ما عندها سقف جلسة منفصل)
  */
 async function meterAndCap(client, channel, sessionId = null) {
+  const usageLedger = require("./usageLedger");
+  const credits = require("./credits");
+  const rateLimit = require("./rateLimit");
+  const usageAnomaly = require("./usageAnomaly");
+  
   const channelKey = channelKeyOf(channel);
 
   // سقف رسائل الفترة التجريبية — يحدّ كلفة أي بوت مهجور تلقائيًا (على القناتين).
@@ -136,6 +147,9 @@ function voiceCapSeconds(client) {
  * ننصرف على صوت راح ينرفض. durationSec من حقل audio.duration تبع Meta.
  */
 async function meterVoice(client, durationSec) {
+  const usageLedger = require("./usageLedger");
+  const credits = require("./credits");
+  
   const cap = voiceCapSeconds(client);
   if (cap == null) return { allowed: true, capSeconds: null };
 

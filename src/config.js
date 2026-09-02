@@ -154,6 +154,12 @@ module.exports = {
   },
 
   userAccounts: {
-    sessionTtlHours: Number(required("USER_SESSION_TTL_HOURS", "720")), // 30 يوم افتراضيًا
+    sessionTtlHours: (() => {
+      const val = Number(required("USER_SESSION_TTL_HOURS", "336"));
+      if (!Number.isFinite(val) || val < 5/60 || val > 336) {
+        throw new Error("Invalid USER_SESSION_TTL_HOURS");
+      }
+      return val;
+    })(), // 14 يوم افتراضيًا
   },
 };

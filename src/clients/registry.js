@@ -128,25 +128,13 @@ function getClientBySecretKey(rawKey) {
   return loadClients().get(`sk:${apiKeys.hashKey(rawKey)}`) || null;
 }
 
+const { evaluateClientEligibility } = require("../services/clientEligibility");
+
 // preview: لسا ما ضغطوا "تفعيل" بعد استعراض المعاينة — ما بيرد على زبائن حقيقيين بعد.
 // active: حي، بس لو plan="trial" لازم نتحقق من trialExpiresAt كل مرة (ما منمدد الفترة تلقائيًا).
 // expired/disabled: متل ما هي، ما بترد أبدًا.
-function isServable(client) {
-  if (!client) return false;
-
-  // عملاء بدون حقل status صراحة = عملاء أنشئوا يدويًا (config.json مكتوب بالإيد من قبل المشغّل) —
-  // دايمًا نشطين، بدون مرور بمرحلة preview. هالحقل أصلاً موجود بس لعملاء التسجيل الذاتي.
-  if (client.status === undefined) return true;
-
-  if (client.status === "disabled" || client.status === "expired" || client.status === "preview") {
-    return false;
-  }
-
-  if (client.plan === "trial" && client.trialExpiresAt) {
-    if (new Date(client.trialExpiresAt).getTime() < Date.now()) return false;
-  }
-
-  return client.status === "active";
+function isServable(client, now = Date.now()) {
+  return evaluateClientEligibility(client, now).allowed;
 }
 
 // لأي endpoint بيرجع معلومات عميل لطرف خارجي (GET /me) — بيشيل الحقول يلي ما لازم تترب
