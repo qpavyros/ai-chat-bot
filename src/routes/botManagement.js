@@ -25,6 +25,10 @@ const { validateClientConfig } = require("../services/clientConfigSchema");
 const asyncHandler = require("../middleware/asyncHandler");
 const { requireUserAuth } = require("./userAuth");
 const userAccounts = require("../services/userAccounts");
+const humanReply = require("../services/humanReply");
+const telegram = require("../services/telegram");
+const discord = require("../services/discordGateway");
+const whatsapp = require("../services/whatsapp");
 
 const router = express.Router();
 
@@ -626,6 +630,20 @@ router.post("/dashboard/bots/:clientId/api/resume-user", requireUserAuth, requir
   handoff.resumeBotUser(req.clientId, userId.trim());
   auditLog.record("resume_bot_user", req.clientId, { userId: userId.trim() });
   res.json({ ok: true, message: `تم إعادة تفعيل البوت للزبون ${userId.trim()}` });
+}));
+
+router.post("/dashboard/bots/:clientId/api/conversations/:userId/reply", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
+  const { channel, message, operationId } = req.body || {};
+  const userId = String(req.params.userId || "").trim();
+  if (!userId || typeof message !== "string" || !message.trim() || message.length > 4000 || !["web", "whatsapp", "telegram", "discord"].includes(channel)) {
+    return res.status(400).json({ error: { code: "invalid_human_reply", message: "القناة والرسالة والبيانات المطلوبة غير صالحة" } });
+  }
+  if (!handoff.isConversationPaused(req.clientId, userId)) {
+    return res.status(409).json({ error: { code: "takeover_required", message: "فعّل التدخل البشري أولاً" } });
+  }
+  const client = registry.getClientById(req.clientId);
+  const result = await humanReply.sendHumanReply({ client, userId, channel, message: message.trim(), operationId, providers: { whatsapp, telegram, discord } });
+  res.json({ ok: true, delivery: result.status, operationId });
 }));
 
 module.exports = router;

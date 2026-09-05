@@ -1,0 +1,40 @@
+const path = require("path");
+const safeWrite = require("./safeWrite");
+const customers = require("./customers");
+
+function validateOperationId(operationId) {
+  if (typeof operationId !== "string" || !/^[\x20-\x7E]{1,128}$/.test(operationId)) throw new Error("invalid operation id");
+}
+
+async function sendHumanReply({ client, userId, channel, message, operationId, providers }) {
+  validateOperationId(operationId);
+  if (!client?.id || !userId || !message) throw new Error("missing human reply fields");
+  return safeWrite.withClientLock(client.id, async () => {
+    const ledgerPath = path.join(safeWrite.dataDir(client.id), "human-replies.json");
+    const ledger = safeWrite.safeReadJSON(ledgerPath, {});
+    const prior = ledger[operationId];
+    if (prior) {
+      if (prior.channel !== channel || prior.userId !== userId || prior.message !== message) throw new Error("operation id reused with different reply");
+      if (prior.status === "unknown") throw new Error("delivery status unknown; reconcile before retry");
+      return prior;
+    }
+    ledger[operationId] = { status: "pending", channel, userId, message, createdAt: new Date().toISOString() };
+    safeWrite.rawWriteDataFile(client.id, "human-replies.json", JSON.stringify(ledger, null, 2));
+    try {
+      if (channel === "whatsapp") await providers.whatsapp.sendTextMessage(userId, client.whatsappPhoneNumberId, message);
+      else if (channel === "telegram") await providers.telegram.sendMessage(client.telegramBotToken, userId, message);
+      else if (channel === "discord") await providers.discord.sendReply(client.discordBotToken, userId, message);
+      else if (channel === "web") await customers.saveTurn(client.id, userId, "[human]", message);
+      else throw new Error("unsupported channel");
+      ledger[operationId] = { ...ledger[operationId], status: "sent", sentAt: new Date().toISOString() };
+      safeWrite.rawWriteDataFile(client.id, "human-replies.json", JSON.stringify(ledger, null, 2));
+      return ledger[operationId];
+    } catch (error) {
+      ledger[operationId] = { ...ledger[operationId], status: "unknown", errorAt: new Date().toISOString() };
+      safeWrite.rawWriteDataFile(client.id, "human-replies.json", JSON.stringify(ledger, null, 2));
+      throw error;
+    }
+  });
+}
+
+module.exports = { sendHumanReply, validateOperationId };

@@ -215,4 +215,4 @@ function syncAll() {
   }
 }
 
-module.exports = { syncAll, startForClient, stopForClient };
+module.exports = { syncAll, startForClient, stopForClient, sendReply };
