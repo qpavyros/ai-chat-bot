@@ -24,3 +24,14 @@ test("Firestore mirror is opt-in and stays inert by default", async () => {
   if (previous === undefined) delete process.env.FIRESTORE_MIRROR_WRITES;
   else process.env.FIRESTORE_MIRROR_WRITES = previous;
 });
+
+test("knowledge writes are idempotent when the latest digest is unchanged", async () => {
+  const versionDoc = { version: "v1", digest: require("crypto").createHash("sha256").update("same").digest("hex"), chunkCount: 1 };
+  let writes = 0;
+  const versions = { orderBy: () => ({ limit: () => ({ get: async () => ({ empty: false, docs: [{ data: () => versionDoc }] }) }) }) };
+  const db = { collection: () => ({ doc: () => ({ collection: () => versions }) }), batch: () => ({ set() {}, commit: async () => { writes += 1; } }) };
+  const { createRepository } = require("../../src/services/storageRepository");
+  const result = await createRepository({ db }).setKnowledge("bot", "same");
+  assert.equal(result.version, "v1");
+  assert.equal(writes, 0);
+});

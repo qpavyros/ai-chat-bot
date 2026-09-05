@@ -64,6 +64,11 @@ function createRepository({ db }) {
       const chunks = splitKnowledge(knowledge);
       const crypto = require("crypto");
       const digest = crypto.createHash("sha256").update(String(knowledge || "")).digest("hex");
+      const existing = await bots.doc(clientId).collection("knowledge").orderBy("createdAt", "desc").limit(1).get();
+      if (!existing.empty && existing.docs[0].data().digest === digest) {
+        const prior = existing.docs[0].data();
+        return { version: prior.version, digest, chunkCount: prior.chunkCount };
+      }
       const versionRef = bots.doc(clientId).collection("knowledge").doc(version.replace(/[^a-zA-Z0-9_-]/g, "_"));
       await versionRef.set({ version, digest, chunkCount: chunks.length, createdAt: new Date().toISOString() });
       const batch = db.batch();
