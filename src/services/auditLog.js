@@ -20,4 +20,8 @@ function readRecent(limit = 100) {
   return jsonlLog.readRecent(LOG_PATH, limit);
 }
 
-module.exports = { record, readRecent };
+function readPage(options = {}) {
+  return jsonlLog.readPage(LOG_PATH, options);
+}
+
+module.exports = { record, readRecent, readPage };

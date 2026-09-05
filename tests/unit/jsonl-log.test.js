@@ -4,7 +4,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { appendCapped, readRecent } = require("../../src/services/jsonlLog");
+const { appendCapped, readRecent, readPage } = require("../../src/services/jsonlLog");
 
 function tempLog() {
   return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "jsonl-test-")), "log.jsonl");
@@ -33,6 +33,21 @@ test("السقف بيمنع النمو اللانهائي ويحافظ على ا
     assert.ok(size < 4096, `الحجم المفروض يكون مقيد، طلع ${size}`);
     const newest = readRecent(logPath, 1)[0];
     assert.strictEqual(newest.i, 300, "أحدث سجل لازم يضل موجود");
+  } finally {
+    fs.rmSync(path.dirname(logPath), { recursive: true, force: true });
+  }
+});
+
+test("السجلات القديمة تُؤرشف ويمكن تصفحها بصفحات", () => {
+  const logPath = tempLog();
+  try {
+    for (let i = 1; i <= 8; i++) appendCapped(logPath, { i, pad: "x".repeat(20) }, { maxBytes: 120, keepLast: 3 });
+    const archivePath = `${logPath}.archive.jsonl`;
+    assert.ok(fs.existsSync(archivePath), "لازم ينحفظ أرشيف بدل حذف السجلات القديمة");
+    assert.deepStrictEqual(readPage(logPath, { limit: 3 }).entries.map((e) => e.i), [8, 7, 6]);
+    const older = readPage(logPath, { limit: 3, cursor: "3" });
+    assert.deepStrictEqual(older.entries.map((e) => e.i), [5, 4, 3]);
+    assert.strictEqual(older.nextCursor, "6");
   } finally {
     fs.rmSync(path.dirname(logPath), { recursive: true, force: true });
   }

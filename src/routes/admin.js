@@ -475,7 +475,9 @@ router.post("/admin/api/clients/:id/topup", requireAuth, express.json(), async (
 });
 
 router.get("/admin/api/audit-log", requireAuth, (req, res) => {
-  res.json({ entries: auditLog.readRecent(200) });
+  const limit = Math.min(200, Math.max(1, Number.parseInt(req.query.limit, 10) || 100));
+  const cursor = typeof req.query.cursor === "string" ? req.query.cursor : "0";
+  res.json(auditLog.readPage({ limit, cursor }));
 });
 
 // إحصائيات يومية (آخر 14 يوم) + تقدير تكلفة DeepSeek من بداية الشهر
