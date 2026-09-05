@@ -93,7 +93,7 @@ async function bookAppointment(client, { date, time, customerName, customerPhone
   if (!isValidTime(time)) throw new Error("وقت غير صحيح، الصيغة المطلوبة HH:mm");
   if (!customerName || !customerPhone) throw new Error("اسم ورقم الزبون مطلوبين");
 
-  return safeWrite.withClientLock(client.id, () => {
+  const record = await safeWrite.withClientLock(client.id, () => {
     // الفحص والكتابة جوا نفس القفل — هاد يلي بيمنع الحجز المزدوج فعليًا
     const free = computeFreeSlots(client, date);
     if (!free.includes(time)) {
@@ -118,6 +118,10 @@ async function bookAppointment(client, { date, time, customerName, customerPhone
 
     return record;
   });
+  if (process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    await require("./storageRepository").mirrorBusinessData(client.id, "appointments", readAppointments(client.id));
+  }
+  return record;
 }
 
 // إلغاء بالبحث عن تاريخ+وقت+رقم تواصل — البوت ما بيعرف الـid الداخلي للموعد (ما ظهرله أبدًا
@@ -127,7 +131,7 @@ async function cancelAppointment(client, { date, time, customerPhone }) {
   if (!isValidTime(time)) throw new Error("وقت غير صحيح، الصيغة المطلوبة HH:mm");
   if (!customerPhone) throw new Error("رقم تواصل الزبون مطلوب لتأكيد أي موعد نلغيه");
 
-  return safeWrite.withClientLock(client.id, () => {
+  const record = await safeWrite.withClientLock(client.id, () => {
     const appointments = readAppointments(client.id);
     const record = appointments.find(
       (a) => a.date === date && a.time === time && a.customerPhone === customerPhone && a.status !== "cancelled"
@@ -140,6 +144,10 @@ async function cancelAppointment(client, { date, time, customerPhone }) {
 
     return record;
   });
+  if (process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    await require("./storageRepository").mirrorBusinessData(client.id, "appointments", readAppointments(client.id));
+  }
+  return record;
 }
 
 module.exports = { getFreeSlots, bookAppointment, cancelAppointment, readAppointments };
