@@ -12,7 +12,7 @@ function fingerprint(value) {
 }
 
 function buildPlan(clients) {
-  return clients.map((client) => {
+  return clients.filter((client) => !client.migrationExcludedAt).map((client) => {
     const projected = toFirestoreBot(client);
     const knowledge = String(client.knowledge || "");
     return { clientId: client.id, sourceHash: fingerprint(client), firestoreHash: fingerprint(projected), document: projected, knowledge: { digest: fingerprint(knowledge), chars: knowledge.length, chunks: splitKnowledge(knowledge).length } };

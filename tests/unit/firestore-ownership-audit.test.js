@@ -7,4 +7,5 @@ test("ownership audit blocks missing and conflicting bot ownership", () => {
   assert.deepEqual(result.missing, ["c"]);
   assert.deepEqual(result.conflicts, [{ botId: "b", owners: ["u1", "u2"] }]);
   assert.equal(result.owned, 1);
+  assert.deepEqual(auditOwnership([{ id: "a", migrationExcludedAt: "now" }, { id: "b" }], [{ uid: "u", bots: ["b"] }]).excluded, ["a"]);
 });

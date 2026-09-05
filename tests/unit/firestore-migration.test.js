@@ -14,3 +14,8 @@ test("knowledge metadata is part of the migration record without exposing conten
   assert.equal(row.knowledge.chunks, 1);
   assert.equal(row.document.knowledge, undefined);
 });
+
+test("migration plan excludes explicitly quarantined legacy bots", () => {
+  const { buildPlan } = require("../../scripts/firestore-migration");
+  assert.deepEqual(buildPlan([{ id: "old", migrationExcludedAt: "now" }, { id: "live", displayName: "Live", escalation: { contactMethod: "x" } }]).map((x) => x.clientId), ["live"]);
+});
