@@ -55,6 +55,15 @@ function dataDir(clientId) {
   return resolveUnder(DATA_DIR, clientId);
 }
 
+function assertWritesEnabled() {
+  if (process.env.MIGRATION_FREEZE === "true") {
+    const error = new Error("writes frozen during migration");
+    error.status = 503;
+    error.code = "migration_freeze";
+    throw error;
+  }
+}
+
 // القفل الوحيد — كل عملية (كتابة، أو دورة قراءة-فحص-كتابة كاملة) لازم تصير جوا هون.
 function withClientLock(clientId, fn) {
   assertValidClientId(clientId);
@@ -83,6 +92,7 @@ function atomicWriteSync(filePath, content) {
 // --- نسخ "raw" بدون قفل — للاستخدام جوا withClientLock بس (appointments.js/orders.js/customers.js) ---
 
 function rawWriteClientFile(clientId, fileName, content) {
+  assertWritesEnabled();
   const dir = clientDir(clientId);
   if (!fs.existsSync(dir)) throw new Error(`عميل غير موجود: ${clientId}`);
   const filePath = path.join(dir, fileName);
@@ -91,6 +101,7 @@ function rawWriteClientFile(clientId, fileName, content) {
 }
 
 function rawWriteDataFile(clientId, relativeFilePath, content) {
+  assertWritesEnabled();
   const filePath = path.join(dataDir(clientId), relativeFilePath);
   backupFile(filePath);
   atomicWriteSync(filePath, content);
@@ -162,6 +173,7 @@ async function updateClientConfig(clientId, updater, { validate } = {}) {
 // إنشاء مجلد عميل جديد بالكامل بشكل ذرّي (مجلد مؤقت ثم rename) — نفس نمط provisioning.js،
 // معاد استخدامه هون لعملاء يُضافون يدويًا من الداشبورد (بعكس عملاء التسجيل الذاتي).
 function createClientDirAtomic(clientId, files) {
+  assertWritesEnabled();
   assertValidClientId(clientId);
   const finalDir = path.join(CLIENTS_DIR, clientId);
   if (fs.existsSync(finalDir)) throw new Error(`عميل موجود أصلاً: ${clientId}`);
@@ -192,4 +204,5 @@ module.exports = {
   safeWriteJSON,
   updateClientConfig,
   createClientDirAtomic,
+  assertWritesEnabled,
 };

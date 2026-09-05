@@ -15,3 +15,11 @@ test("معرّفات traversal/غريبة بترفض", () => {
     assert.throws(() => safeWrite.assertValidClientId(bad), undefined, `لازم يرفض: ${bad}`);
   }
 });
+
+test("migration freeze blocks all safe writes", () => {
+  const previous = process.env.MIGRATION_FREEZE;
+  process.env.MIGRATION_FREEZE = "true";
+  assert.throws(() => safeWrite.assertWritesEnabled(), /writes frozen/);
+  if (previous === undefined) delete process.env.MIGRATION_FREEZE;
+  else process.env.MIGRATION_FREEZE = previous;
+});
