@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { toFirestoreBot, fromFirestoreBot, splitKnowledge, mirrorBotConfig } = require("../../src/services/storageRepository");
+const { toFirestoreBot, fromFirestoreBot, splitKnowledge, mirrorBotConfig, mirrorBusinessData } = require("../../src/services/storageRepository");
 
 test("Firestore bot projection excludes channel credentials and round-trips public settings", () => {
   const data = toFirestoreBot({
@@ -34,4 +34,12 @@ test("knowledge writes are idempotent when the latest digest is unchanged", asyn
   const result = await createRepository({ db }).setKnowledge("bot", "same");
   assert.equal(result.version, "v1");
   assert.equal(writes, 0);
+});
+
+test("business data mirror is opt-in", async () => {
+  const previous = process.env.FIRESTORE_MIRROR_WRITES;
+  delete process.env.FIRESTORE_MIRROR_WRITES;
+  assert.deepEqual(await mirrorBusinessData("bot", "orders", []), { mirrored: false, reason: "disabled" });
+  if (previous === undefined) delete process.env.FIRESTORE_MIRROR_WRITES;
+  else process.env.FIRESTORE_MIRROR_WRITES = previous;
 });

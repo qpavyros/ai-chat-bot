@@ -67,6 +67,10 @@ async function createOrder(client, { items, totalPrice, deliveryMethod, delivery
     return newRecord;
   });
 
+  if (process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    await require("./storageRepository").mirrorBusinessData(client.id, "orders", readOrders(client.id));
+  }
+
   await notifyBusinessOwner(client, record);
 
   return record;

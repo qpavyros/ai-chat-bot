@@ -35,6 +35,21 @@ async function mirrorBotConfig(config) {
   return { mirrored: true, id: config.id };
 }
 
+async function mirrorBusinessData(clientId, name, value) {
+  if (process.env.FIRESTORE_MIRROR_WRITES !== "true") return { mirrored: false, reason: "disabled" };
+  if (!clientId || !name) throw new Error("business data identity required");
+  const { db } = require("./firebaseAdmin");
+  const crypto = require("crypto");
+  const payload = JSON.stringify(value);
+  await db.collection("bots").doc(clientId).collection("businessData").doc(name).set({
+    schemaVersion: 1,
+    digest: crypto.createHash("sha256").update(payload).digest("hex"),
+    value,
+    updatedAt: new Date().toISOString(),
+  }, { merge: false });
+  return { mirrored: true, id: clientId, name };
+}
+
 function createRepository({ db }) {
   if (!db) throw new Error("Firestore database is required");
   const bots = db.collection("bots");
@@ -87,4 +102,4 @@ function createRepository({ db }) {
   };
 }
 
-module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig };
+module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig, mirrorBusinessData };
