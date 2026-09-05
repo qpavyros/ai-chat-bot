@@ -61,3 +61,21 @@ test("account credits decrement once and refuse an empty balance", async () => {
   assert.equal((await entitlements.consumeCredit("uid-1")).available, true);
   assert.deepEqual(await entitlements.consumeCredit("uid-1"), { available: false, reason: "credit_empty" });
 });
+
+test("account credit grant is idempotent", async () => {
+  let data = { remainingCredits: 2 };
+  const ref = {};
+  const firestore = {
+    collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+    runTransaction: async (fn) => fn({
+      get: async () => ({ exists: true, data: () => data }),
+      set: (_ref, next) => { data = next; },
+    }),
+  };
+  const entitlements = createAccountEntitlements({ firestore });
+  const first = await entitlements.addCredits("uid-1", 5, "pay-1", { pack: "small" });
+  const replay = await entitlements.addCredits("uid-1", 5, "pay-1", { pack: "small" });
+  assert.deepEqual(first, { ok: true, added: 5, balance: 7 });
+  assert.deepEqual(replay, first);
+  assert.equal(data.remainingCredits, 7);
+});

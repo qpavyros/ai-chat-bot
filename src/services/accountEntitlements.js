@@ -76,6 +76,21 @@ function createAccountEntitlements({ firestore } = {}) {
         return { available: true, remainingCredits: remaining - 1 };
       });
     },
+    async addCredits(uid, amount, operationId, metadata = {}) {
+      if (!uid || !Number.isFinite(amount) || amount <= 0 || !operationId) throw new Error("invalid credit grant");
+      const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { ok: false, reason: "missing_entitlement" };
+        const data = snap.data() || {};
+        const operations = data.creditOperations || {};
+        const prior = operations[operationId];
+        if (prior) return prior.result;
+        const result = { ok: true, added: amount, balance: (Number(data.remainingCredits) || 0) + amount };
+        tx.set(ref, { ...data, remainingCredits: result.balance, creditOperations: { ...operations, [operationId]: { result, metadata, at: new Date().toISOString() } }, updatedAt: new Date().toISOString() }, { merge: false });
+        return result;
+      });
+    },
     async reserveCredit(uid, operationId) {
       if (!uid || !operationId) throw new Error("invalid credit reservation");
       const entRef = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");

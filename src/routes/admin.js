@@ -457,7 +457,12 @@ router.post("/admin/api/clients/:id/topup", requireAuth, express.json(), async (
   if (!opId) return res.status(400).json({ error: "Idempotency key required" });
 
   try {
-    const result = await credits.addCredits(id, pack, opId);
+    const client = require("../clients/registry").getClientById(id);
+    const packDef = credits.packDef(pack);
+    const result = client?.ownerUid
+      ? await require("../services/accountEntitlements").createAccountEntitlements().addCredits(client.ownerUid, packDef.credits, opId, { pack })
+      : await credits.addCredits(id, pack, opId);
+    if (result?.ok === false) return res.status(409).json({ error: result.reason });
     auditLog.record("topup_credits", id, { pack, added: result.added, balance: result.balance });
     res.json({ ok: true, ...result });
   } catch (err) {
