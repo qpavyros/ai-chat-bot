@@ -6,9 +6,22 @@ function validateOperationId(operationId) {
   if (typeof operationId !== "string" || !/^[\x20-\x7E]{1,128}$/.test(operationId)) throw new Error("invalid operation id");
 }
 
+function assertWhatsappWindow(client, userId) {
+  if (!client?.whatsappPhoneNumberId || typeof customers.getProfile !== "function") return;
+  const profile = customers.getProfile(client.id, userId);
+  const lastInbound = Date.parse(profile?.lastMessageAt || "");
+  if (!Number.isFinite(lastInbound) || Date.now() - lastInbound >= 24 * 60 * 60 * 1000) {
+    const error = new Error("whatsapp messaging window expired; use an approved template");
+    error.code = "whatsapp_window_expired";
+    error.status = 409;
+    throw error;
+  }
+}
+
 async function sendHumanReply({ client, userId, channel, message, operationId, providers }) {
   validateOperationId(operationId);
   if (!client?.id || !userId || !message) throw new Error("missing human reply fields");
+  if (channel === "whatsapp") assertWhatsappWindow(client, userId);
   return safeWrite.withClientLock(client.id, async () => {
     const ledgerPath = path.join(safeWrite.dataDir(client.id), "human-replies.json");
     const localLedger = safeWrite.safeReadJSON(ledgerPath, {});
@@ -49,4 +62,4 @@ async function sendHumanReply({ client, userId, channel, message, operationId, p
   });
 }
 
-module.exports = { sendHumanReply, validateOperationId };
+module.exports = { sendHumanReply, validateOperationId, assertWhatsappWindow };
