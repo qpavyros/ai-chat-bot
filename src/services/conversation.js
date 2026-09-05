@@ -10,7 +10,11 @@ function key(clientId, userId) {
 const pausedUntil = new Map(); // hot cache; file remains source of truth after restart
 function statePath(clientId) { return path.join(safeWrite.dataDir(clientId), "takeovers.json"); }
 function loadClient(clientId) {
-  const raw = safeWrite.safeReadJSON(statePath(clientId), {});
+  const local = safeWrite.safeReadJSON(statePath(clientId), {});
+  let raw = local;
+  if (typeof process !== "undefined" && process.env.FIRESTORE_SOURCE_OF_TRUTH === "true") {
+    try { raw = require("./storageRepository").readHydratedBusinessData(clientId, "takeovers", local); } catch { raw = local; }
+  }
   const now = Date.now();
   for (const [userId, until] of Object.entries(raw || {})) {
     if (Number.isFinite(until) && until > now) pausedUntil.set(key(clientId, userId), until);

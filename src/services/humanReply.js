@@ -11,7 +11,11 @@ async function sendHumanReply({ client, userId, channel, message, operationId, p
   if (!client?.id || !userId || !message) throw new Error("missing human reply fields");
   return safeWrite.withClientLock(client.id, async () => {
     const ledgerPath = path.join(safeWrite.dataDir(client.id), "human-replies.json");
-    const ledger = safeWrite.safeReadJSON(ledgerPath, {});
+    const localLedger = safeWrite.safeReadJSON(ledgerPath, {});
+    let ledger = localLedger;
+    if (typeof process !== "undefined" && process.env.FIRESTORE_SOURCE_OF_TRUTH === "true") {
+      try { ledger = require("./storageRepository").readHydratedBusinessData(client.id, "human-replies", localLedger); } catch { ledger = localLedger; }
+    }
     const prior = ledger[operationId];
     if (prior) {
       if (prior.channel !== channel || prior.userId !== userId || prior.message !== message) throw new Error("operation id reused with different reply");
