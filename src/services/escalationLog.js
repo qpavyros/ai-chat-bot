@@ -33,4 +33,9 @@ function readRecent(clientId, limit = 100) {
   return require("./storageRepository").readHydratedBusinessData(clientId, "escalations", local).slice(0, limit);
 }
 
-module.exports = { record, readRecent };
+function readPage(clientId, options = {}) {
+  if (!clientId) return { entries: [], nextCursor: null };
+  return jsonlLog.readPage(logPath(clientId), options);
+}
+
+module.exports = { record, readRecent, readPage };

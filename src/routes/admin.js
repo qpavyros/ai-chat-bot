@@ -618,10 +618,12 @@ router.post("/admin/api/clients/:id/preview-chat/reset", requireAuth, async (req
 router.get("/admin/api/escalations", requireAuth, (req, res) => {
   const clientIds = safeWrite.listClientIds();
   const allEscalations = [];
+  const limit = Math.min(200, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+  const cursor = Math.max(0, Number.parseInt(req.query.cursor, 10) || 0);
 
   for (const clientId of clientIds) {
     const cfg = readClientConfig(clientId);
-    const logs = escalationLog.readRecent(clientId, 50);
+    const logs = escalationLog.readPage(clientId, { limit: 500, cursor: "0" }).entries;
     const handledIds = new Set(escalationHandled.getHandledIds(clientId));
 
     for (const item of logs) {
@@ -635,7 +637,8 @@ router.get("/admin/api/escalations", requireAuth, (req, res) => {
   }
 
   allEscalations.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
-  res.json({ escalations: allEscalations.slice(0, 200) });
+  const escalations = allEscalations.slice(cursor, cursor + limit);
+  res.json({ escalations, nextCursor: cursor + escalations.length < allEscalations.length ? String(cursor + escalations.length) : null });
 });
 
 router.post("/admin/api/escalations/:clientId/:escalationId/handle", requireAuth, async (req, res) => {
