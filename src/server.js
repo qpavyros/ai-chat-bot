@@ -10,8 +10,13 @@ const admin = require("./routes/admin");
 const { router: userAuth } = require("./routes/userAuth");
 const dashboard = require("./routes/dashboard");
 const botManagement = require("./routes/botManagement");
+const registry = require("./clients/registry");
 
 const app = express();
+const firestoreHydration = registry.hydrateFromFirestore().catch((error) => {
+  console.error("[firestore] startup hydration failed:", error.message);
+  throw error;
+});
 // خلف Nginx reverse proxy (VPS) — لازم حتى req.secure يعكس X-Forwarded-Proto الصحيح
 // (كوكي جلسة /admin بتحطّ Secure بس لو الطلب فعليًا وصل عبر HTTPS، راجع src/routes/admin.js)
 app.set("trust proxy", 1);
@@ -54,6 +59,15 @@ app.use(["/api", "/api/v1"], (req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
+});
+
+app.use(async (req, res, next) => {
+  try {
+    await firestoreHydration;
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.use("/", whatsappWebhook);

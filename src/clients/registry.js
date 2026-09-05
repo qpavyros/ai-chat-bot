@@ -34,6 +34,29 @@ function loadAuth(clientDir) {
 // ⚠️ الكائنات المرجعة صارت مشتركة بين الطلبات (نفس reference) — أي مستدعي لازم يقرأ بس،
 // يعدّل عبر safeWrite (اللي بيغير الملف → البصمة بتتغير → نسخة جديدة).
 let cache = null; // { fingerprint, clients }
+let firestoreHydrated = false;
+
+async function hydrateFromFirestore({ db } = {}) {
+  if (process.env.FIRESTORE_SOURCE_OF_TRUTH !== "true") return { enabled: false, hydrated: 0 };
+  if (firestoreHydrated) return { enabled: true, hydrated: cache ? cache.clients.size : 0 };
+  if (!db) db = require("../services/firebaseAdmin").db;
+  const repository = require("../services/storageRepository").createRepository({ db });
+  const local = getAllClients();
+  let hydrated = 0;
+  for (const client of local) {
+    const remote = await repository.getBotConfig(client.id);
+    if (!remote) continue;
+    const knowledge = await repository.getKnowledge(client.id);
+    const merged = { ...client, ...remote };
+    if (knowledge !== null) merged.knowledge = knowledge;
+    for (const [key, value] of cache.clients.entries()) {
+      if (value === client) cache.clients.set(key, merged);
+    }
+    hydrated += 1;
+  }
+  firestoreHydrated = true;
+  return { enabled: true, hydrated };
+}
 
 function currentFingerprint() {
   const parts = [];
@@ -151,4 +174,5 @@ module.exports = {
   getClientByPublicKey,
   getClientBySecretKey,
   isServable,
+  hydrateFromFirestore,
 };
