@@ -62,7 +62,7 @@ function generateUniqueSlug(companyName) {
   return candidate;
 }
 
-function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source }) {
+function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, ownerUid }) {
   const now = new Date();
   const trialExpiresAt = new Date(now.getTime() + config.provisioning.trialDays * 24 * 60 * 60 * 1000);
 
@@ -75,6 +75,7 @@ function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escala
 
   return {
     id: slug,
+    ...(ownerUid ? { ownerUid } : {}),
     displayName: companyName,
     language: "ar-LB",
     tone: "مهذب، واضح، جمل قصيرة، ما بيوعد بشي مش أكيد منه",
@@ -99,9 +100,9 @@ function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escala
 // بالنص لا سمح الله بيوقف العملية قبل ما يوصل للـ rename — ما في مجلد عميل نصف-مكتمل
 // registry.js يقدر يحمّله بالغلط (registry أصلاً بيتجاهل أي مجلد بدون config.json، فالمجلد
 // المؤقت ما ظاهر إله أبدًا حتى لو حدا قرا المجلد بنفس اللحظة).
-function createClient({ companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, knowledgeContent, knowledgeFileName }) {
+function createClient({ companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, knowledgeContent, knowledgeFileName, ownerUid }) {
   const slug = generateUniqueSlug(companyName);
-  const clientConfig = defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source });
+  const clientConfig = defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, ownerUid });
   const publicKey = apiKeys.generatePublicKey();
   const authData = { publicKey, apiKeys: [] };
 

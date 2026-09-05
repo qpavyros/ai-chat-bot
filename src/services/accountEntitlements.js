@@ -49,6 +49,20 @@ function createAccountEntitlements({ firestore } = {}) {
         return next;
       });
     },
+    async consumeMessage(uid) {
+      if (!uid) throw new Error("uid required");
+      const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { available: false, reason: "missing_entitlement" };
+        const data = snap.data() || {};
+        const remaining = Number.isFinite(data.remainingMessages) ? data.remainingMessages : 0;
+        if (remaining <= 0) return { available: false, reason: "message_cap" };
+        const next = { ...data, remainingMessages: remaining - 1, updatedAt: new Date().toISOString() };
+        tx.set(ref, next, { merge: false });
+        return { available: true, remainingMessages: next.remainingMessages };
+      });
+    },
   };
 }
 

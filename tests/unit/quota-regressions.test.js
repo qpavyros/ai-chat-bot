@@ -13,7 +13,7 @@ function load(file, stubs) {
   vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
   return context.module.exports;
 }
-function gate({ deniedAbuse, quotaAllowed = true } = {}) {
+function gate({ deniedAbuse, quotaAllowed = true, accountResult = null } = {}) {
   const effects = [];
   const config = { plans: { growth: { monthlyMessageCap: 2000, monthlyVoiceMinutes: 45, allowWidget: true } }, provisioning: { trialDays: 7, trialMessageCap: 50, trialVoiceMinutes: 5 }, abuseGuard: { clientDailyMax: 10, sessionHourlyMax: 5 } };
   const service = load('src/services/messageGate.js', {
@@ -21,6 +21,7 @@ function gate({ deniedAbuse, quotaAllowed = true } = {}) {
     './rateLimit': { checkLimit(key) { effects.push('abuse:' + key); return { allowed: !deniedAbuse || !key.startsWith(deniedAbuse), remaining: 5 }; } },
     './usageLedger': { async checkAndIncrement(key) { effects.push('quota:' + key); return { allowed: quotaAllowed }; } },
     './credits': { async consumeOne() { effects.push('credit'); return true; } },
+    './accountEntitlements': { createAccountEntitlements() { return { async consumeMessage(uid) { effects.push('account:' + uid); return accountResult || { available: false, reason: 'missing_entitlement' }; } }; } },
     './usageAnomaly': { checkAndAlert() {} }, './handoff': { async notifyCapReached() {} }
   });
   return { service, effects };
@@ -46,6 +47,14 @@ test('trial with tier uses trial message quota once', async () => {
   const { service, effects } = gate();
   assert.equal((await service.meterAndCap({ ...trial(), tier: 'growth' }, 'telegram')).allowed, true);
   assert.deepEqual(effects.filter(x => x.startsWith('quota:')), ['quota:trial-msgs:synthetic']);
+});
+test('owned paid bot consumes shared account entitlement once and skips bot quota', async () => {
+  const { service, effects } = gate({ accountResult: { available: true, remainingMessages: 4 } });
+  const result = await service.meterAndCap({ id: 'owned', ownerUid: 'account-1', status: 'active', tier: 'growth', subscriptionExpiresAt: '2099-01-01T00:00:00Z' }, 'telegram');
+  assert.equal(result.allowed, true);
+  assert.equal(result.remainingMessages, 4);
+  assert.deepEqual(effects.filter(x => x.startsWith('account:')), ['account:account-1']);
+  assert.equal(effects.some(x => x.startsWith('quota:')), false);
 });
 test('trial voice cap takes priority over selected paid tier', () => {
   assert.equal(gate().service.voiceCapSeconds({ ...trial(), tier: 'growth' }), 300);

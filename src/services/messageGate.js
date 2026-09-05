@@ -115,6 +115,19 @@ async function meterAndCap(client, channel, sessionId = null, permit = null) {
     if (!dailyUsage.allowed) return { allowed: false, reason: "daily_cap" };
   }
 
+  // الحسابات الجديدة ذات الملكية المثبتة تستهلك من رصيد الحساب مرة واحدة فقط.
+  // الحسابات القديمة بلا ownerUid تبقى على العدادات القديمة حتى تكتمل تسوية الملكية.
+  if (client.ownerUid && client.plan !== "trial") {
+    const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
+    const shared = await accountEntitlements.consumeMessage(client.ownerUid);
+    if (shared.available) return { allowed: true, remainingMessages: shared.remainingMessages };
+    if (shared.reason === "message_cap") {
+      if (await credits.consumeOne(client.id)) return { allowed: true, usedCredit: true };
+      notifyCapReachedOncePerDay(client, "account_message_cap");
+      return { allowed: false, reason: "monthly_cap" };
+    }
+  }
+
   // سقف رسائل الفترة التجريبية — يحدّ كلفة أي بوت مهجور تلقائيًا (على القناتين).
   // رصيد الشحن بينفع يعديه كمان — تجربة موفقة = فرصة تحويل لشحن/اشتراك.
   if (client.plan === "trial") {

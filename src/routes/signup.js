@@ -243,6 +243,7 @@ router.post("/signup/knowledge", ...requireOwnedPending(), upload.single("file")
       source: { type: sourceType, value: sourceValue, ingestedAt: new Date().toISOString() },
       knowledgeContent: content,
       knowledgeFileName,
+      ownerUid: pending.ownerUid,
     });
     clientId = result.clientId;
     publicKey = result.publicKey;
