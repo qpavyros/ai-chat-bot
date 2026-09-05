@@ -162,6 +162,14 @@
       "</div>";
     html += "</section>";
 
+    var shared = data.accountEntitlements || {};
+    html += '<section class="mb-12 bg-primary-container/30 border border-primary/20 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">' +
+      '<div><p class="text-label-sm text-on-surface-variant mb-1">استحقاق الحساب المشترك</p>' +
+      '<h2 class="font-headline-md text-headline-md">' + esc(shared.plan ? "باقة " + shared.plan : "بدون باقة مشتركة") + '</h2></div>' +
+      '<div class="flex gap-6 text-label-md text-on-surface"><span>' + Number(shared.remainingMessages || 0) + ' رسالة متبقية</span>' +
+      '<span>' + Number(shared.remainingCredits || 0) + ' رصيد شحن</span></div>' +
+      '</section>';
+
     html += '<section><div class="flex justify-between items-center mb-6"><h2 class="font-headline-lg text-headline-md">بوتاتك (' + data.bots.length + ")</h2></div>";
     html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
 
