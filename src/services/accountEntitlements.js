@@ -91,6 +91,23 @@ function createAccountEntitlements({ firestore } = {}) {
         return result;
       });
     },
+    async recordPayment(uid, { operationId, tier, now = Date.now(), amountUsd = null } = {}) {
+      if (!uid || !operationId) throw new Error("invalid payment");
+      const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { ok: false, reason: "missing_entitlement" };
+        const data = snap.data() || {};
+        const operations = data.paymentOperations || {};
+        if (operations[operationId]) return operations[operationId].result;
+        const current = Date.parse(data.expiresAt || "");
+        const base = Number.isFinite(current) && current > now ? current : now;
+        const nextExpiry = new Date(base + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const result = { ok: true, nextExpiry, plan: tier || data.plan || null, amountUsd };
+        tx.set(ref, { ...data, plan: result.plan, expiresAt: nextExpiry, paymentOperations: { ...operations, [operationId]: { result, at: new Date(now).toISOString() } }, updatedAt: new Date().toISOString() }, { merge: false });
+        return result;
+      });
+    },
     async reserveCredit(uid, operationId) {
       if (!uid || !operationId) throw new Error("invalid credit reservation");
       const entRef = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");

@@ -413,8 +413,11 @@ router.post("/admin/api/clients/:id/record-payment", requireAuth, express.json()
   if (!opId) return res.status(400).json({ error: "Idempotency key required" });
 
   try {
-    const billing = require("../services/billing");
-    const result = await billing.recordPayment(id, opId);
+    const client = require("../clients/registry").getClientById(id);
+    const result = client?.ownerUid
+      ? await require("../services/accountEntitlements").createAccountEntitlements().recordPayment(client.ownerUid, { operationId: opId, tier: client.tier || null })
+      : await require("../services/billing").recordPayment(id, opId);
+    if (result?.ok === false) return res.status(409).json({ error: result.reason });
     replyCache.clear(id);
     auditLog.record("record_payment", id, { nextExpiry: result.nextExpiry, amountUsd: result.amountUsd });
     // Remove amountUsd from result before returning to client if needed, but it's fine.

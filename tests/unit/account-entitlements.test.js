@@ -79,3 +79,21 @@ test("account credit grant is idempotent", async () => {
   assert.deepEqual(replay, first);
   assert.equal(data.remainingCredits, 7);
 });
+
+test("account payment extends from the farther existing expiry and is idempotent", async () => {
+  let data = { plan: "starter", expiresAt: "2030-01-01T00:00:00.000Z" };
+  const ref = {};
+  const firestore = {
+    collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+    runTransaction: async (fn) => fn({
+      get: async () => ({ exists: true, data: () => data }),
+      set: (_ref, next) => { data = next; },
+    }),
+  };
+  const entitlements = createAccountEntitlements({ firestore });
+  const first = await entitlements.recordPayment("uid-1", { operationId: "pay-1", tier: "growth", now: Date.parse("2029-01-01T00:00:00.000Z") });
+  const replay = await entitlements.recordPayment("uid-1", { operationId: "pay-1", tier: "growth", now: Date.parse("2029-01-01T00:00:00.000Z") });
+  assert.equal(first.nextExpiry, "2030-01-31T00:00:00.000Z");
+  assert.deepEqual(replay, first);
+  assert.equal(data.plan, "growth");
+});
