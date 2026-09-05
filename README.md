@@ -311,3 +311,6 @@ npm run ingest -- <clientId> website "https://client-site.com/faq" faq
 
 - **توثيق API رسمي** (`/docs` OpenAPI + Redoc/Scalar): مؤجل لحد أول شركة تطلب تكامل برمجي مباشر (مو بس الودجت الجاهز).
 - **`sk_` endpoints** (`/appointments`, `/usage`): مؤجّلة لحد أول عميل يطلب وصول برمجي فعلي لبياناته.
+
+## دليل التشغيل
+راجع docs/operations-runbook.md لمصدر الحقيقة في Firestore، النسخ والاستعادة، ترقيم السجلات، وتشغيل التدخل البشري.
