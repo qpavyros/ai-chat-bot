@@ -27,6 +27,14 @@ function splitKnowledge(text, size = KNOWLEDGE_CHUNK_SIZE) {
   return chunks;
 }
 
+async function mirrorBotConfig(config) {
+  if (process.env.FIRESTORE_MIRROR_WRITES !== "true" || !config?.id) return { mirrored: false, reason: "disabled" };
+  const { db } = require("./firebaseAdmin");
+  const repository = createRepository({ db });
+  await repository.setBotConfig(config);
+  return { mirrored: true, id: config.id };
+}
+
 function createRepository({ db }) {
   if (!db) throw new Error("Firestore database is required");
   const bots = db.collection("bots");
@@ -74,4 +82,4 @@ function createRepository({ db }) {
   };
 }
 
-module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository };
+module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig };

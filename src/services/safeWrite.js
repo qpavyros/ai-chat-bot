@@ -152,6 +152,9 @@ async function updateClientConfig(clientId, updater, { validate } = {}) {
     }
     
     rawWriteClientFile(clientId, "config.json", JSON.stringify(nextConfig, null, 2));
+    if (process.env.FIRESTORE_MIRROR_WRITES === "true") {
+      await require("./storageRepository").mirrorBotConfig(nextConfig);
+    }
     return nextConfig;
   });
 }
