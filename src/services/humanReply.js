@@ -20,6 +20,12 @@ async function sendHumanReply({ client, userId, channel, message, operationId, p
     }
     ledger[operationId] = { status: "pending", channel, userId, message, createdAt: new Date().toISOString() };
     safeWrite.rawWriteDataFile(client.id, "human-replies.json", JSON.stringify(ledger, null, 2));
+    const mirror = async () => {
+      if (typeof process !== "undefined" && process.env.FIRESTORE_MIRROR_WRITES === "true") {
+        await require("./storageRepository").mirrorBusinessData(client.id, "human-replies", ledger);
+      }
+    };
+    await mirror();
     try {
       if (channel === "whatsapp") await providers.whatsapp.sendTextMessage(userId, client.whatsappPhoneNumberId, message);
       else if (channel === "telegram") await providers.telegram.sendMessage(client.telegramBotToken, userId, message);
@@ -28,10 +34,12 @@ async function sendHumanReply({ client, userId, channel, message, operationId, p
       else throw new Error("unsupported channel");
       ledger[operationId] = { ...ledger[operationId], status: "sent", sentAt: new Date().toISOString() };
       safeWrite.rawWriteDataFile(client.id, "human-replies.json", JSON.stringify(ledger, null, 2));
+      await mirror();
       return ledger[operationId];
     } catch (error) {
       ledger[operationId] = { ...ledger[operationId], status: "unknown", errorAt: new Date().toISOString() };
       safeWrite.rawWriteDataFile(client.id, "human-replies.json", JSON.stringify(ledger, null, 2));
+      await mirror();
       throw error;
     }
   });
