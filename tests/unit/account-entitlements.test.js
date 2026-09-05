@@ -46,3 +46,18 @@ test("account voice reservation debits and refunds atomically", async () => {
   await entitlements.refundVoiceReservation(held.reservationId);
   assert.equal(entitlement.remainingVoiceSeconds, 90);
 });
+
+test("account credits decrement once and refuse an empty balance", async () => {
+  let data = { remainingCredits: 1 };
+  const ref = {};
+  const firestore = {
+    collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+    runTransaction: async (fn) => fn({
+      get: async () => ({ exists: true, data: () => data }),
+      set: (_ref, next) => { data = next; },
+    }),
+  };
+  const entitlements = createAccountEntitlements({ firestore });
+  assert.equal((await entitlements.consumeCredit("uid-1")).available, true);
+  assert.deepEqual(await entitlements.consumeCredit("uid-1"), { available: false, reason: "credit_empty" });
+});

@@ -63,6 +63,57 @@ function createAccountEntitlements({ firestore } = {}) {
         return { available: true, remainingMessages: next.remainingMessages };
       });
     },
+    async consumeCredit(uid) {
+      if (!uid) throw new Error("uid required");
+      const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return { available: false, reason: "missing_entitlement" };
+        const data = snap.data() || {};
+        const remaining = Number.isFinite(data.remainingCredits) ? data.remainingCredits : 0;
+        if (remaining <= 0) return { available: false, reason: "credit_empty" };
+        tx.set(ref, { ...data, remainingCredits: remaining - 1, updatedAt: new Date().toISOString() }, { merge: false });
+        return { available: true, remainingCredits: remaining - 1 };
+      });
+    },
+    async reserveCredit(uid, operationId) {
+      if (!uid || !operationId) throw new Error("invalid credit reservation");
+      const entRef = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      const reservationId = require("crypto").createHash("sha256").update(`${uid}:credit:${operationId}`).digest("hex");
+      const resRef = firestore.collection("accountCreditReservations").doc(reservationId);
+      return firestore.runTransaction(async (tx) => {
+        const [entSnap, resSnap] = await tx.getAll(entRef, resRef);
+        if (resSnap.exists) return { allowed: false, reason: "duplicate", reservationId };
+        if (!entSnap.exists) return { allowed: false, reason: "missing_entitlement" };
+        const data = entSnap.data() || {};
+        const remaining = Number.isFinite(data.remainingCredits) ? data.remainingCredits : 0;
+        if (remaining <= 0) return { allowed: false, reason: "credit_empty" };
+        tx.set(entRef, { ...data, remainingCredits: remaining - 1, updatedAt: new Date().toISOString() }, { merge: false });
+        tx.set(resRef, { uid, status: "pending", createdAtUTC: new Date().toISOString() });
+        return { allowed: true, reservationId };
+      });
+    },
+    async commitCreditReservation(reservationId) {
+      const ref = firestore.collection("accountCreditReservations").doc(reservationId);
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists && snap.data().status === "pending") tx.update(ref, { status: "committed" });
+      });
+    },
+    async refundCreditReservation(reservationId) {
+      const ref = firestore.collection("accountCreditReservations").doc(reservationId);
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists || snap.data().status !== "pending") return;
+        const data = snap.data();
+        const entRef = firestore.collection("users").doc(data.uid).collection("billing").doc("entitlements");
+        const entSnap = await tx.get(entRef);
+        if (!entSnap.exists) return;
+        const ent = entSnap.data() || {};
+        tx.update(ref, { status: "refunded" });
+        tx.set(entRef, { ...ent, remainingCredits: (Number(ent.remainingCredits) || 0) + 1, updatedAt: new Date().toISOString() }, { merge: false });
+      });
+    },
     async reserveVoice(uid, amount, operationId) {
       if (!uid || !Number.isFinite(amount) || amount <= 0 || !operationId) throw new Error("invalid voice reservation");
       const entRef = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");

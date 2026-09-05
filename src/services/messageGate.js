@@ -122,7 +122,8 @@ async function meterAndCap(client, channel, sessionId = null, permit = null) {
     const shared = await accountEntitlements.consumeMessage(client.ownerUid);
     if (shared.available) return { allowed: true, remainingMessages: shared.remainingMessages };
     if (shared.reason === "message_cap") {
-      if (await credits.consumeOne(client.id)) return { allowed: true, usedCredit: true };
+      const credit = await accountEntitlements.consumeCredit(client.ownerUid);
+      if (credit.available) return { allowed: true, usedCredit: true, remainingCredits: credit.remainingCredits };
       notifyCapReachedOncePerDay(client, "account_message_cap");
       return { allowed: false, reason: "monthly_cap" };
     }
@@ -257,8 +258,8 @@ async function meterVoice(client, durationSec, options = {}) {
       return { allowed: true, permit, capSeconds: cap, reservation: { kind: "account", id: shared.reservationId } };
     }
     if (shared.reason === "voice_cap") {
-      const creditRes = await credits.reserveOne(client.id, operationId);
-      if (creditRes?.allowed) return { allowed: true, permit, capSeconds: cap, usedCredit: true, reservation: { kind: "credit", id: creditRes.reservationId } };
+      const creditRes = await accountEntitlements.reserveCredit(client.ownerUid, operationId);
+      if (creditRes?.allowed) return { allowed: true, permit, capSeconds: cap, usedCredit: true, reservation: { kind: "account-credit", id: creditRes.reservationId } };
       return { allowed: false, reason: "voice_cap", capSeconds: cap };
     }
   }
@@ -293,6 +294,9 @@ async function commitVoiceReservation(client, reservation) {
   if (reservation.kind === 'account') {
     const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
     await accountEntitlements.commitVoiceReservation(reservation.id);
+  } else if (reservation.kind === 'account-credit') {
+    const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
+    await accountEntitlements.commitCreditReservation(reservation.id);
   } else if (reservation.kind === 'ledger') {
     const usageLedger = require("./usageLedger");
     await usageLedger.commitReservation(reservation.id);
@@ -307,6 +311,9 @@ async function refundVoiceReservation(client, reservation) {
   if (reservation.kind === 'account') {
     const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
     await accountEntitlements.refundVoiceReservation(reservation.id);
+  } else if (reservation.kind === 'account-credit') {
+    const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
+    await accountEntitlements.refundCreditReservation(reservation.id);
   } else if (reservation.kind === 'ledger') {
     const usageLedger = require("./usageLedger");
     await usageLedger.refundReservation(reservation.id);
