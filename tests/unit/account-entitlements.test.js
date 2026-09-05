@@ -25,3 +25,24 @@ test("account message consumption is atomic and refuses an exhausted entitlement
   assert.deepEqual(await entitlements.consumeMessage("uid-1"), { available: true, remainingMessages: 0 });
   assert.deepEqual(await entitlements.consumeMessage("uid-1"), { available: false, reason: "message_cap" });
 });
+
+test("account voice reservation debits and refunds atomically", async () => {
+  let entitlement = { remainingVoiceSeconds: 90 };
+  let reservation = null;
+  const refs = { entitlement: {}, reservation: {} };
+  const firestore = {
+    collection: (name) => ({ doc: () => name === "users" ? { collection: () => ({ doc: () => refs.entitlement }) } : refs.reservation }),
+    runTransaction: async (fn) => fn({
+      get: async (ref) => ref === refs.entitlement ? { exists: true, data: () => entitlement } : { exists: Boolean(reservation), data: () => reservation },
+      getAll: async (...wanted) => wanted.map(ref => ref === refs.entitlement ? { exists: true, data: () => entitlement } : { exists: Boolean(reservation), data: () => reservation }),
+      set: (ref, next) => { if (ref === refs.entitlement) entitlement = next; else reservation = next; },
+      update: (ref, next) => { reservation = { ...reservation, ...next }; },
+    }),
+  };
+  const entitlements = createAccountEntitlements({ firestore });
+  const held = await entitlements.reserveVoice("uid-1", 30, "op-1");
+  assert.equal(held.allowed, true);
+  assert.equal(entitlement.remainingVoiceSeconds, 60);
+  await entitlements.refundVoiceReservation(held.reservationId);
+  assert.equal(entitlement.remainingVoiceSeconds, 90);
+});

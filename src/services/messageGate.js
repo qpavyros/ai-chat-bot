@@ -249,6 +249,19 @@ async function meterVoice(client, durationSec, options = {}) {
 
   const usageLedger = require("./usageLedger");
   const credits = require("./credits");
+
+  if (client.ownerUid && client.plan !== "trial") {
+    const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
+    const shared = await accountEntitlements.reserveVoice(client.ownerUid, durationSec, operationId);
+    if (shared.allowed) {
+      return { allowed: true, permit, capSeconds: cap, reservation: { kind: "account", id: shared.reservationId } };
+    }
+    if (shared.reason === "voice_cap") {
+      const creditRes = await credits.reserveOne(client.id, operationId);
+      if (creditRes?.allowed) return { allowed: true, permit, capSeconds: cap, usedCredit: true, reservation: { kind: "credit", id: creditRes.reservationId } };
+      return { allowed: false, reason: "voice_cap", capSeconds: cap };
+    }
+  }
   
   try {
     const res = await usageLedger.reserve(`voice-seconds-monthly:${client.id}`, {
@@ -277,7 +290,10 @@ async function meterVoice(client, durationSec, options = {}) {
 
 async function commitVoiceReservation(client, reservation) {
   if (!reservation) return;
-  if (reservation.kind === 'ledger') {
+  if (reservation.kind === 'account') {
+    const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
+    await accountEntitlements.commitVoiceReservation(reservation.id);
+  } else if (reservation.kind === 'ledger') {
     const usageLedger = require("./usageLedger");
     await usageLedger.commitReservation(reservation.id);
   } else if (reservation.kind === 'credit') {
@@ -288,7 +304,10 @@ async function commitVoiceReservation(client, reservation) {
 
 async function refundVoiceReservation(client, reservation) {
   if (!reservation) return;
-  if (reservation.kind === 'ledger') {
+  if (reservation.kind === 'account') {
+    const accountEntitlements = require("./accountEntitlements").createAccountEntitlements();
+    await accountEntitlements.refundVoiceReservation(reservation.id);
+  } else if (reservation.kind === 'ledger') {
     const usageLedger = require("./usageLedger");
     await usageLedger.refundReservation(reservation.id);
   } else if (reservation.kind === 'credit') {
