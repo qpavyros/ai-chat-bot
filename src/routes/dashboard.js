@@ -14,6 +14,7 @@ const usageLedger = require("../services/usageLedger");
 const userAccounts = require("../services/userAccounts");
 const asyncHandler = require("../middleware/asyncHandler");
 const { requireUserAuth } = require("./userAuth");
+const { settleEntitlements } = require("../services/accountEntitlements");
 
 const router = express.Router();
 
@@ -69,8 +70,10 @@ router.get("/dashboard/api/summary", requireUserAuth, asyncHandler(async (req, r
   if (!profile) return res.status(404).json({ error: { code: "profile_not_found", message: "ملف شخصي غير موجود" } });
 
   const bots = (await Promise.all(profile.bots.map(buildBotSummary))).filter(Boolean);
+  const botConfigs = bots.map((bot) => safeWrite.safeReadJSON(path.join(safeWrite.clientDir(bot.clientId), "config.json"), null)).filter(Boolean);
+  const accountEntitlements = settleEntitlements(botConfigs, config.plans);
 
-  res.json({ email: profile.email, bots });
+  res.json({ email: profile.email, bots, accountEntitlements });
 }));
 
 module.exports = router;

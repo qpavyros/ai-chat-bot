@@ -12,7 +12,7 @@ function settleEntitlements(bots, planCatalog, now = Date.now()) {
   let remainingCredits = 0;
   for (const bot of rows) {
     const plan = bot?.tier && planCatalog?.[bot.tier] ? bot.tier : null;
-    const rank = plan ? finiteNumber(planCatalog[plan].rank) : -1;
+    const rank = plan ? finiteNumber(planCatalog[plan].rank || planCatalog[plan].monthlyMessageCap) : -1;
     if (rank > topRank) { topRank = rank; topPlan = plan; }
     const expiry = Date.parse(bot?.subscriptionExpiresAt || bot?.trialExpiresAt || "");
     if (Number.isFinite(expiry) && (!farthestExpiry || expiry > farthestExpiry)) farthestExpiry = expiry;
