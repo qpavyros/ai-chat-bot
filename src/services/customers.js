@@ -44,8 +44,8 @@ function getProfile(clientId, userId) {
   return safeWrite.safeReadJSON(profileAbsolutePath(clientId, userId), emptyProfile(userId));
 }
 
-function saveTurn(clientId, userId, userMessage, botReply) {
-  return safeWrite.withClientLock(clientId, () => {
+async function saveTurn(clientId, userId, userMessage, botReply) {
+  const profile = await safeWrite.withClientLock(clientId, () => {
     const profile = getProfile(clientId, userId);
     profile.history.push({ role: "user", content: userMessage });
     profile.history.push({ role: "assistant", content: botReply });
@@ -60,25 +60,36 @@ function saveTurn(clientId, userId, userMessage, botReply) {
       { at: profile.lastMessageAt, user: userMessage, bot: botReply },
       { maxBytes: 512 * 1024, keepLast: 2000 }
     );
+    return profile;
   });
+  if (process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    await require("./storageRepository").mirrorBusinessData(clientId, `customer-${safeId(userId)}`, profile);
+    await require("./storageRepository").mirrorBusinessData(clientId, `transcript-${safeId(userId)}`, readTranscript(clientId, userId, 2000));
+  }
+  return profile;
 }
 
 function readTranscript(clientId, userId, limit = 500) {
   return jsonlLog.readRecent(transcriptPath(clientId, userId), limit);
 }
 
-function addFact(clientId, userId, factText) {
+async function addFact(clientId, userId, factText) {
   const trimmed = String(factText || "").trim();
   if (!trimmed) return;
 
-  return safeWrite.withClientLock(clientId, () => {
+  const profile = await safeWrite.withClientLock(clientId, () => {
     const profile = getProfile(clientId, userId);
-    if (profile.facts.some((f) => f.text === trimmed)) return; // تفادي تكرار نفس المعلومة بالضبط
+    if (profile.facts.some((f) => f.text === trimmed)) return profile; // تفادي تكرار نفس المعلومة بالضبط
 
     profile.facts.push({ text: trimmed, savedAt: new Date().toISOString() });
     profile.facts = profile.facts.slice(-MAX_FACTS);
     safeWrite.rawWriteDataFile(clientId, profileRelativePath(userId), JSON.stringify(profile, null, 2));
+    return profile;
   });
+  if (profile && process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    await require("./storageRepository").mirrorBusinessData(clientId, `customer-${safeId(userId)}`, profile);
+  }
+  return profile;
 }
 
 // النص يُحقن بالـ system prompt — null لو ما في شي محفوظ بعد (زبون جديد)
