@@ -56,6 +56,7 @@ function createAccountEntitlements({ firestore } = {}) {
         const snap = await tx.get(ref);
         if (!snap.exists) return { available: false, reason: "missing_entitlement" };
         const data = snap.data() || {};
+        if (data.unbounded === true) return { available: false, reason: "missing_entitlement" };
         const remaining = Number.isFinite(data.remainingMessages) ? data.remainingMessages : 0;
         if (remaining <= 0) return { available: false, reason: "message_cap" };
         const next = { ...data, remainingMessages: remaining - 1, updatedAt: new Date().toISOString() };
@@ -70,6 +71,7 @@ function createAccountEntitlements({ firestore } = {}) {
         const snap = await tx.get(ref);
         if (!snap.exists) return { available: false, reason: "missing_entitlement" };
         const data = snap.data() || {};
+        if (data.unbounded === true) return { available: false, reason: "missing_entitlement" };
         const remaining = Number.isFinite(data.remainingCredits) ? data.remainingCredits : 0;
         if (remaining <= 0) return { available: false, reason: "credit_empty" };
         tx.set(ref, { ...data, remainingCredits: remaining - 1, updatedAt: new Date().toISOString() }, { merge: false });
@@ -83,6 +85,7 @@ function createAccountEntitlements({ firestore } = {}) {
         const snap = await tx.get(ref);
         if (!snap.exists) return { ok: false, reason: "missing_entitlement" };
         const data = snap.data() || {};
+        if (data.unbounded === true) return { ok: false, reason: "missing_entitlement" };
         const operations = data.creditOperations || {};
         const prior = operations[operationId];
         if (prior) return prior.result;
@@ -98,6 +101,7 @@ function createAccountEntitlements({ firestore } = {}) {
         const snap = await tx.get(ref);
         if (!snap.exists) return { ok: false, reason: "missing_entitlement" };
         const data = snap.data() || {};
+        if (data.unbounded === true) return { ok: false, reason: "missing_entitlement" };
         const operations = data.paymentOperations || {};
         if (operations[operationId]) return operations[operationId].result;
         const current = Date.parse(data.expiresAt || "");
@@ -118,6 +122,7 @@ function createAccountEntitlements({ firestore } = {}) {
         if (resSnap.exists) return { allowed: false, reason: "duplicate", reservationId };
         if (!entSnap.exists) return { allowed: false, reason: "missing_entitlement" };
         const data = entSnap.data() || {};
+        if (data.unbounded === true) return { allowed: false, reason: "missing_entitlement" };
         const remaining = Number.isFinite(data.remainingCredits) ? data.remainingCredits : 0;
         if (remaining <= 0) return { allowed: false, reason: "credit_empty" };
         tx.set(entRef, { ...data, remainingCredits: remaining - 1, updatedAt: new Date().toISOString() }, { merge: false });
@@ -156,6 +161,7 @@ function createAccountEntitlements({ firestore } = {}) {
         if (resSnap.exists) return { allowed: false, reason: "duplicate", reservationId };
         if (!entSnap.exists) return { allowed: false, reason: "missing_entitlement" };
         const data = entSnap.data() || {};
+        if (data.unbounded === true) return { allowed: false, reason: "missing_entitlement" };
         const remaining = Number.isFinite(data.remainingVoiceSeconds) ? data.remainingVoiceSeconds : 0;
         if (remaining < amount) return { allowed: false, reason: "voice_cap" };
         tx.set(entRef, { ...data, remainingVoiceSeconds: remaining - amount, updatedAt: new Date().toISOString() }, { merge: false });
