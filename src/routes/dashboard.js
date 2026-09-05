@@ -60,6 +60,9 @@ async function buildBotSummary(clientId) {
     plan: cfg.plan || "manual",
     messagesThisPeriod: usage.count || 0,
     messagesCap: cap,
+    messageQuotaRemaining: cap === null ? 0 : Math.max(0, cap - (usage.count || 0)),
+    subscriptionExpiresAt: cfg.subscriptionExpiresAt || null,
+    trialExpiresAt: cfg.trialExpiresAt || null,
     topUpCreditsRemaining: cfg.topUpCreditsRemaining || 0,
     conversationsThisPeriod: countConversationsThisMonth(clientId),
   };
