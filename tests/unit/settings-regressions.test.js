@@ -31,7 +31,9 @@ function harness() {
     '../services/provisioning': {}, '../services/userAccounts': {}, '../clients/registry': {},
     '../services/ingest': {}, '../services/urlGuard': {}, '../services/usageLedger': {}, '../services/auditLog': { record() {} },
     '../services/escalationLog': {}, '../services/escalationHandled': {}, '../services/handoff': {}, '../services/orders': {}, '../services/customers': {},
-    '../services/safe-id': { safeId: x => x }, '../services/discordGateway': { syncAll() {} }
+    '../services/safe-id': { safeId: x => x }, '../services/discordGateway': { syncAll() {}, sendReply: async () => {} },
+    '../services/humanReply': { sendHumanReply: async () => ({ status: 'sent' }) },
+    '../services/telegram': { sendMessage: async () => {} }, '../services/whatsapp': { sendTextMessage: async () => {} }
   };
   const context = { module: { exports: {} }, __dirname: path.join(root, 'src/routes'), Buffer, URL, console: { log() {}, error() {}, warn() {} }, require(name) { if (Object.hasOwn(stubs, name)) return stubs[name]; if (['path', 'crypto'].includes(name)) return require(name); throw Error('Unexpected dependency: ' + name); } };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'src/routes/botManagement.js'), 'utf8'), context);
