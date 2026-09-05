@@ -3,6 +3,7 @@ const { pickClientConfigFields, validateClientConfig } = require("./clientConfig
 // Firestore representation for bot configuration. Credentials stay in the local
 // auth/config files until an explicit secret migration is performed.
 const SECRET_FIELDS = new Set(["telegramBotToken", "discordBotToken", "telegramWebhookSecret", "whatsappRegistrationPin"]);
+const KNOWLEDGE_CHUNK_SIZE = 32 * 1024;
 
 function toFirestoreBot(config) {
   const clean = pickClientConfigFields(config);
@@ -17,6 +18,13 @@ function fromFirestoreBot(snapshot) {
   if (!data || typeof data !== "object") return null;
   const { schemaVersion, updatedAt, ...config } = data;
   return config;
+}
+
+function splitKnowledge(text, size = KNOWLEDGE_CHUNK_SIZE) {
+  const value = String(text || "");
+  const chunks = [];
+  for (let i = 0; i < value.length; i += size) chunks.push(value.slice(i, i + size));
+  return chunks;
 }
 
 function createRepository({ db }) {
@@ -44,7 +52,26 @@ function createRepository({ db }) {
         return fromFirestoreBot(data);
       });
     },
+    async setKnowledge(clientId, knowledge, { version = new Date().toISOString() } = {}) {
+      const chunks = splitKnowledge(knowledge);
+      const crypto = require("crypto");
+      const digest = crypto.createHash("sha256").update(String(knowledge || "")).digest("hex");
+      const versionRef = bots.doc(clientId).collection("knowledge").doc(version.replace(/[^a-zA-Z0-9_-]/g, "_"));
+      await versionRef.set({ version, digest, chunkCount: chunks.length, createdAt: new Date().toISOString() });
+      const batch = db.batch();
+      chunks.forEach((content, index) => batch.set(versionRef.collection("chunks").doc(String(index).padStart(8, "0")), { index, content, digest }));
+      await batch.commit();
+      return { version, digest, chunkCount: chunks.length };
+    },
+    async getKnowledge(clientId, version) {
+      const versions = bots.doc(clientId).collection("knowledge");
+      const snapshot = version ? await versions.doc(version).collection("chunks").orderBy("index").get() : await versions.orderBy("createdAt", "desc").limit(1).get();
+      if (version) return snapshot.docs.map((doc) => doc.data().content).join("");
+      if (snapshot.empty) return null;
+      const chunks = await snapshot.docs[0].ref.collection("chunks").orderBy("index").get();
+      return chunks.docs.map((doc) => doc.data().content).join("");
+    },
   };
 }
 
-module.exports = { SECRET_FIELDS, toFirestoreBot, fromFirestoreBot, createRepository };
+module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository };

@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { toFirestoreBot, fromFirestoreBot } = require("../../src/services/storageRepository");
+const { toFirestoreBot, fromFirestoreBot, splitKnowledge } = require("../../src/services/storageRepository");
 
 test("Firestore bot projection excludes channel credentials and round-trips public settings", () => {
   const data = toFirestoreBot({
@@ -11,4 +11,8 @@ test("Firestore bot projection excludes channel credentials and round-trips publ
   assert.equal(data.discordBotToken, undefined);
   assert.equal(fromFirestoreBot(data).displayName, "Synthetic");
   assert.equal(fromFirestoreBot(data).schemaVersion, undefined);
+});
+
+test("knowledge is split into ordered bounded chunks", () => {
+  assert.deepEqual(splitKnowledge("abcdef", 2), ["ab", "cd", "ef"]);
 });
