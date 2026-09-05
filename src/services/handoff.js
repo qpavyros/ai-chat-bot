@@ -86,8 +86,10 @@ function checkKeywordEscalation(userText) {
 
 async function handleEscalation(client, { channel, endUserId, lastMessage }) {
   conversation.pauseForHandoff(client.id, endUserId, config.handoff.pauseHours * 60 * 60 * 1000);
-  escalationLog.record(client.id, { channel, endUserId, lastMessage });
+  const escalation = escalationLog.record(client.id, { channel, endUserId, lastMessage });
+  if (!escalation?.id) throw new Error("escalation_log_failed");
   await notifyBusinessOwner(client, { channel, endUserId, lastMessage });
+  return escalation;
 }
 
 function isConversationPaused(clientId, endUserId) {
@@ -139,4 +141,3 @@ module.exports = {
   buildServiceIssueReply,
   notifyCapReached,
 };
-

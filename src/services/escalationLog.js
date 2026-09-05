@@ -10,7 +10,7 @@ function logPath(clientId) {
 }
 
 function record(clientId, { channel, endUserId, lastMessage }) {
-  if (!clientId) return;
+  if (!clientId) return null;
   const entry = {
     id: crypto.randomBytes(8).toString("hex"),
     at: new Date().toISOString(),
@@ -19,6 +19,7 @@ function record(clientId, { channel, endUserId, lastMessage }) {
     lastMessage,
   };
   jsonlLog.appendCapped(logPath(clientId), entry, { maxBytes: 256 * 1024, keepLast: 500 });
+  return entry;
 }
 
 function readRecent(clientId, limit = 100) {

@@ -378,8 +378,8 @@ router.post("/signup/activate", ...requireOwnedPending(), asyncHandler(async (re
   }
 
   await provisioning.activateClient(pending.clientId);
-  await signups.markCompleted(pending.pendingId);
   await userAccounts.attachBot(req.uid, pending.clientId);
+  await signups.markCompleted(pending.pendingId);
   await userAccounts.clearOnboardingState(req.uid);
 
   const widgetSnippet =

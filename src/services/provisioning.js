@@ -156,10 +156,13 @@ async function activateClient(clientId) {
     }
 
     const clientConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const wasActive = clientConfig.status === "active";
     clientConfig.status = "active";
-    clientConfig.trialExpiresAt = new Date(
-      Date.now() + config.provisioning.trialDays * 24 * 60 * 60 * 1000
-    ).toISOString();
+    if (!wasActive || !clientConfig.trialExpiresAt) {
+      clientConfig.trialExpiresAt = new Date(
+        Date.now() + config.provisioning.trialDays * 24 * 60 * 60 * 1000
+      ).toISOString();
+    }
 
     safeWrite.rawWriteClientFile(clientId, "config.json", JSON.stringify(clientConfig, null, 2));
     return clientConfig;
