@@ -13,3 +13,5 @@ src/clients/client-*/
 
 # ملفات طوارئ/handoff فيها أسرار حقيقية (كلمات سر، مفاتيح API) — محلية بس، ما تنرفع أبدًا.
 HANDOFF-*.md
+
+src/clients/*/auth.json
