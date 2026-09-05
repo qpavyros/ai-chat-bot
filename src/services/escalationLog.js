@@ -19,6 +19,11 @@ function record(clientId, { channel, endUserId, lastMessage }) {
     lastMessage,
   };
   jsonlLog.appendCapped(logPath(clientId), entry, { maxBytes: 256 * 1024, keepLast: 500 });
+  if (typeof process !== "undefined" && process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    require("./storageRepository").mirrorBusinessData(clientId, "escalations", readRecent(clientId, 500)).catch((error) =>
+      console.error("[firestore] escalation mirror failed:", error.message)
+    );
+  }
   return entry;
 }
 

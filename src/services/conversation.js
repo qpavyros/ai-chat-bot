@@ -24,6 +24,11 @@ function persistClient(clientId) {
     if (k.startsWith(prefix) && until > now) state[k.slice(prefix.length)] = until;
   }
   safeWrite.rawWriteDataFile(clientId, "takeovers.json", JSON.stringify(state, null, 2));
+  if (typeof process !== "undefined" && process.env.FIRESTORE_MIRROR_WRITES === "true") {
+    require("./storageRepository").mirrorBusinessData(clientId, "takeovers", state).catch((error) =>
+      console.error("[firestore] takeover mirror failed:", error.message)
+    );
+  }
 }
 
 function pauseForHandoff(clientId, userId, ms = 24 * 60 * 60 * 1000) {
