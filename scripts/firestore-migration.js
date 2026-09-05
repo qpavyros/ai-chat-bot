@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const registry = require("../src/clients/registry");
-const { toFirestoreBot } = require("../src/services/storageRepository");
+const { toFirestoreBot, splitKnowledge } = require("../src/services/storageRepository");
 
 function fingerprint(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -14,7 +14,8 @@ function fingerprint(value) {
 function buildPlan(clients) {
   return clients.map((client) => {
     const projected = toFirestoreBot(client);
-    return { clientId: client.id, sourceHash: fingerprint(client), firestoreHash: fingerprint(projected), document: projected };
+    const knowledge = String(client.knowledge || "");
+    return { clientId: client.id, sourceHash: fingerprint(client), firestoreHash: fingerprint(projected), document: projected, knowledge: { digest: fingerprint(knowledge), chars: knowledge.length, chunks: splitKnowledge(knowledge).length } };
   }).sort((a, b) => a.clientId.localeCompare(b.clientId));
 }
 
