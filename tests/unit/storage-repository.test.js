@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { toFirestoreBot, fromFirestoreBot, splitKnowledge, mirrorBotConfig, mirrorBusinessData } = require("../../src/services/storageRepository");
+const { toFirestoreBot, fromFirestoreBot, splitKnowledge, mirrorBotConfig, mirrorBusinessData, hydrateBusinessData, readHydratedBusinessData } = require("../../src/services/storageRepository");
 
 test("Firestore bot projection excludes channel credentials and round-trips public settings", () => {
   const data = toFirestoreBot({
@@ -42,4 +42,14 @@ test("business data mirror is opt-in", async () => {
   assert.deepEqual(await mirrorBusinessData("bot", "orders", []), { mirrored: false, reason: "disabled" });
   if (previous === undefined) delete process.env.FIRESTORE_MIRROR_WRITES;
   else process.env.FIRESTORE_MIRROR_WRITES = previous;
+});
+
+test("source-of-truth hydration serves business data from Firestore cache", async () => {
+  const previous = process.env.FIRESTORE_SOURCE_OF_TRUTH;
+  process.env.FIRESTORE_SOURCE_OF_TRUTH = "true";
+  const db = { collection: () => ({ doc: () => ({ collection: () => ({ get: async () => ({ docs: [{ id: "orders", data: () => ({ value: [{ id: "remote-order" }] }) }] }) }) }) }) };
+  await hydrateBusinessData("bot", { db });
+  assert.deepEqual(readHydratedBusinessData("bot", "orders", [{ id: "local-order" }]), [{ id: "remote-order" }]);
+  if (previous === undefined) delete process.env.FIRESTORE_SOURCE_OF_TRUTH;
+  else process.env.FIRESTORE_SOURCE_OF_TRUTH = previous;
 });

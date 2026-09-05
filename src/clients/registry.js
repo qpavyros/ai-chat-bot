@@ -52,6 +52,7 @@ async function hydrateFromFirestore({ db } = {}) {
     for (const [key, value] of cache.clients.entries()) {
       if (value === client) cache.clients.set(key, merged);
     }
+    await require("../services/storageRepository").hydrateBusinessData(client.id, { db });
     hydrated += 1;
   }
   firestoreHydrated = true;

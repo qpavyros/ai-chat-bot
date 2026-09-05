@@ -41,7 +41,8 @@ function emptyProfile(userId) {
 }
 
 function getProfile(clientId, userId) {
-  return safeWrite.safeReadJSON(profileAbsolutePath(clientId, userId), emptyProfile(userId));
+  const local = safeWrite.safeReadJSON(profileAbsolutePath(clientId, userId), emptyProfile(userId));
+  return require("./storageRepository").readHydratedBusinessData(clientId, `customer-${safeId(userId)}`, local);
 }
 
 async function saveTurn(clientId, userId, userMessage, botReply) {
@@ -70,7 +71,8 @@ async function saveTurn(clientId, userId, userMessage, botReply) {
 }
 
 function readTranscript(clientId, userId, limit = 500) {
-  return jsonlLog.readRecent(transcriptPath(clientId, userId), limit);
+  const local = jsonlLog.readRecent(transcriptPath(clientId, userId), limit);
+  return require("./storageRepository").readHydratedBusinessData(clientId, `transcript-${safeId(userId)}`, local).slice(0, limit);
 }
 
 async function addFact(clientId, userId, factText) {

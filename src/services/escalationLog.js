@@ -29,7 +29,8 @@ function record(clientId, { channel, endUserId, lastMessage }) {
 
 function readRecent(clientId, limit = 100) {
   if (!clientId) return [];
-  return jsonlLog.readRecent(logPath(clientId), limit);
+  const local = jsonlLog.readRecent(logPath(clientId), limit);
+  return require("./storageRepository").readHydratedBusinessData(clientId, "escalations", local).slice(0, limit);
 }
 
 module.exports = { record, readRecent };

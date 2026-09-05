@@ -4,6 +4,7 @@ const { pickClientConfigFields, validateClientConfig } = require("./clientConfig
 // auth/config files until an explicit secret migration is performed.
 const SECRET_FIELDS = new Set(["telegramBotToken", "discordBotToken", "telegramWebhookSecret", "whatsappRegistrationPin"]);
 const KNOWLEDGE_CHUNK_SIZE = 32 * 1024;
+const hydratedBusinessData = new Map();
 
 function toFirestoreBot(config) {
   const clean = pickClientConfigFields(config);
@@ -47,7 +48,29 @@ async function mirrorBusinessData(clientId, name, value) {
     value,
     updatedAt: new Date().toISOString(),
   }, { merge: false });
+  let clientCache = hydratedBusinessData.get(clientId);
+  if (!clientCache) hydratedBusinessData.set(clientId, (clientCache = new Map()));
+  clientCache.set(name, value);
   return { mirrored: true, id: clientId, name };
+}
+
+async function hydrateBusinessData(clientId, { db } = {}) {
+  if (!clientId) throw new Error("client id required");
+  if (!db) db = require("./firebaseAdmin").db;
+  const snapshot = await db.collection("bots").doc(clientId).collection("businessData").get();
+  const values = new Map();
+  for (const doc of snapshot.docs) {
+    const data = doc.data() || {};
+    if (Object.prototype.hasOwnProperty.call(data, "value")) values.set(doc.id, data.value);
+  }
+  hydratedBusinessData.set(clientId, values);
+  return { clientId, count: values.size };
+}
+
+function readHydratedBusinessData(clientId, name, fallback) {
+  if (process.env.FIRESTORE_SOURCE_OF_TRUTH !== "true") return fallback;
+  const values = hydratedBusinessData.get(clientId);
+  return values && values.has(name) ? values.get(name) : fallback;
 }
 
 function createRepository({ db }) {
@@ -102,4 +125,4 @@ function createRepository({ db }) {
   };
 }
 
-module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig, mirrorBusinessData };
+module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig, mirrorBusinessData, hydrateBusinessData, readHydratedBusinessData };

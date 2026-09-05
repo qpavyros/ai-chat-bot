@@ -17,7 +17,8 @@ const { hoursForDate } = require("./businessHours");
 
 function readAppointments(clientId) {
   const file = require("path").join(safeWrite.dataDir(clientId), "appointments.json");
-  return safeWrite.safeReadJSON(file, []);
+  const local = safeWrite.safeReadJSON(file, []);
+  return require("./storageRepository").readHydratedBusinessData(clientId, "appointments", local);
 }
 
 function isValidDate(dateStr) {

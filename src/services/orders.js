@@ -13,7 +13,8 @@ const safeWrite = require("./safeWrite");
 
 function readOrders(clientId) {
   const file = path.join(safeWrite.dataDir(clientId), "orders.json");
-  return safeWrite.safeReadJSON(file, []);
+  const local = safeWrite.safeReadJSON(file, []);
+  return require("./storageRepository").readHydratedBusinessData(clientId, "orders", local);
 }
 
 async function notifyBusinessOwner(client, record) {
