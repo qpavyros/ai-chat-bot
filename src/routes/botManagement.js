@@ -513,8 +513,24 @@ function isTestOrPreviewProfile(fileName) {
 }
 
 router.get("/dashboard/bots/:clientId/api/conversations", requireUserAuth, requireOwnedBot, asyncHandler(async (req, res) => {
+  const storageRepository = require("../services/storageRepository");
   const customersDir = path.join(safeWrite.dataDir(req.clientId), "customers");
   const list = [];
+  const hydratedProfiles = storageRepository.listHydratedBusinessData(req.clientId, "customer-");
+  for (const { value: profile } of hydratedProfiles) {
+    if (!profile?.userId) continue;
+    list.push({
+      userId: profile.userId,
+      firstSeenAt: profile.firstSeenAt || null,
+      lastMessageAt: profile.lastMessageAt || null,
+      lastMessage: profile.lastMessage || "",
+      exchanges: Math.floor((profile.history?.length || 0) / 2),
+    });
+  }
+  if (hydratedProfiles.length) {
+    list.sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
+    return res.json({ conversations: list });
+  }
   if (fs.existsSync(customersDir)) {
     for (const f of fs.readdirSync(customersDir)) {
       if (!f.endsWith(".json") || isTestOrPreviewProfile(f)) continue;

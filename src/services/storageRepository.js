@@ -73,6 +73,13 @@ function readHydratedBusinessData(clientId, name, fallback) {
   return values && values.has(name) ? values.get(name) : fallback;
 }
 
+function listHydratedBusinessData(clientId, prefix = "") {
+  if (process.env.FIRESTORE_SOURCE_OF_TRUTH !== "true") return [];
+  const values = hydratedBusinessData.get(clientId);
+  if (!values) return [];
+  return [...values.entries()].filter(([name]) => name.startsWith(prefix)).map(([name, value]) => ({ name, value }));
+}
+
 function createRepository({ db }) {
   if (!db) throw new Error("Firestore database is required");
   const bots = db.collection("bots");
@@ -125,4 +132,4 @@ function createRepository({ db }) {
   };
 }
 
-module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig, mirrorBusinessData, hydrateBusinessData, readHydratedBusinessData };
+module.exports = { SECRET_FIELDS, KNOWLEDGE_CHUNK_SIZE, splitKnowledge, toFirestoreBot, fromFirestoreBot, createRepository, mirrorBotConfig, mirrorBusinessData, hydrateBusinessData, readHydratedBusinessData, listHydratedBusinessData };
