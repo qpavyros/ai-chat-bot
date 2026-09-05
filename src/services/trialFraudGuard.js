@@ -111,11 +111,31 @@ async function reserveWabaFingerprint(ownerUid, wabaId) {
     }
     const nowIso = new Date().toISOString();
     if (!snap.exists) {
-      tx.set(ref, { ownerUid, firstSeenAt: nowIso, lastSeenAt: nowIso, hits: 1 });
+      tx.set(ref, { ownerUid, firstSeenAt: nowIso, lastSeenAt: nowIso, hits: 1, status: "pending" });
     } else {
       tx.update(ref, { lastSeenAt: nowIso, hits: (snap.data().hits || 1) + 1 });
     }
     return { blocked: false };
+  });
+}
+
+async function confirmWabaFingerprint(ownerUid, wabaId) {
+  if (!wabaId) return;
+  const ref = db.collection(COLLECTION).doc(`waba:${wabaId}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists && snap.data().ownerUid === ownerUid) {
+      tx.update(ref, { status: "confirmed", lastSeenAt: new Date().toISOString() });
+    }
+  });
+}
+
+async function releaseWabaFingerprint(ownerUid, wabaId) {
+  if (!wabaId) return;
+  const ref = db.collection(COLLECTION).doc(`waba:${wabaId}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists && snap.data().ownerUid === ownerUid && snap.data().status === "pending") tx.delete(ref);
   });
 }
 
@@ -131,4 +151,4 @@ function messageForReason(reason) {
   return (REASON_MESSAGES[reason] || "تم رصد استخدام سابق لبيانات مشابهة.") + " تواصل معنا لو حابب تكمل أو ترقّي لباقة مدفوعة.";
 }
 
-module.exports = { reserveSignupFingerprints, reserveWabaFingerprint, messageForReason, normalizePhone, normalizeDomain };
+module.exports = { reserveSignupFingerprints, reserveWabaFingerprint, confirmWabaFingerprint, releaseWabaFingerprint, messageForReason, normalizePhone, normalizeDomain };

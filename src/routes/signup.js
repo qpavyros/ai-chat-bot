@@ -30,6 +30,7 @@ const handoff = require("../services/handoff");
 const safeWrite = require("../services/safeWrite");
 const asyncHandler = require("../middleware/asyncHandler");
 const { validateClientConfig } = require("../services/clientConfigSchema");
+const { verifyEmbeddedSignupOwnership } = require("../services/whatsappOwnership");
 const { requireUserAuth } = require("./userAuth");
 
 const router = express.Router();
@@ -311,18 +312,26 @@ router.post("/signup/connect-whatsapp", ...requireOwnedPending({ allowCompleted:
     return res.status(503).json({ error: { code: "embedded_signup_not_configured", message: "ربط واتساب التلقائي مش مفعّل حالياً — تواصل معنا" } });
   }
 
-  if (wabaId) {
-    const wabaFraudCheck = await trialFraudGuard.reserveWabaFingerprint(req.uid, wabaId);
-    if (wabaFraudCheck.blocked) {
-      return res.status(409).json({ error: { code: "trial_already_used", message: trialFraudGuard.messageForReason(wabaFraudCheck.reason) } });
-    }
-  }
-
+  let reservedWabaId = null;
   try {
-    await axios.get(`https://graph.facebook.com/${config.whatsapp.graphVersion}/oauth/access_token`, {
-      params: { client_id: config.meta.appId, client_secret: config.meta.appSecret, code },
-      timeout: 15_000,
+    const ownership = await verifyEmbeddedSignupOwnership({
+      axios,
+      graphVersion: config.whatsapp.graphVersion,
+      appId: config.meta.appId,
+      appSecret: config.meta.appSecret,
+      code,
+      phoneNumberId,
+      wabaId,
     });
+
+    reservedWabaId = ownership.wabaId;
+    if (reservedWabaId) {
+      const wabaFraudCheck = await trialFraudGuard.reserveWabaFingerprint(req.uid, reservedWabaId);
+      if (wabaFraudCheck.blocked) {
+        reservedWabaId = null;
+        return res.status(409).json({ error: { code: "trial_already_used", message: trialFraudGuard.messageForReason(wabaFraudCheck.reason) } });
+      }
+    }
 
     const pin = String(crypto.randomInt(100000, 999999));
     await axios.post(
@@ -338,14 +347,23 @@ router.post("/signup/connect-whatsapp", ...requireOwnedPending({ allowCompleted:
     const updated = {
       ...configOnly,
       whatsappPhoneNumberId: phoneNumberId,
-      whatsappBusinessAccountId: wabaId || null,
+      whatsappBusinessAccountId: ownership.wabaId,
       whatsappRegistrationPin: pin,
     };
 
     await safeWrite.safeWriteJSON(pending.clientId, "config.json", updated, { validate: validateClientConfig });
+    await trialFraudGuard.confirmWabaFingerprint(req.uid, reservedWabaId);
 
     res.json({ ok: true, phoneNumberId });
   } catch (err) {
+    if (reservedWabaId) {
+      await trialFraudGuard.releaseWabaFingerprint(req.uid, reservedWabaId).catch((releaseError) =>
+        console.error("[signup] فشل تحرير حجز WABA:", releaseError.message)
+      );
+    }
+    if (err.code === "whatsapp_ownership_mismatch" || err.code === "whatsapp_ownership_failed") {
+      return res.status(400).json({ error: { code: err.code, message: "تعذر إثبات ملكية رقم واتساب — أعد المحاولة من حساب Meta الصحيح" } });
+    }
     console.error("[signup] فشل ربط واتساب:", err.response?.data || err.message);
     res.status(500).json({ error: { code: "whatsapp_connect_failed", message: "فشل ربط واتساب — تأكد من الصلاحيات وحاول كمان مرة" } });
   }
