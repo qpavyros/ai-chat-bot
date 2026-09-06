@@ -62,7 +62,7 @@ function generateUniqueSlug(companyName) {
   return candidate;
 }
 
-function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, ownerUid }) {
+function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, ownerUid, campaignCode }) {
   const now = new Date();
   const trialExpiresAt = new Date(now.getTime() + config.provisioning.trialDays * 24 * 60 * 60 * 1000);
 
@@ -73,7 +73,7 @@ function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escala
     // websiteUrl ممكن يكون فاضي لو المصدر PDF/إكسل بدل موقع — allowedOrigins بيضل فاضي وقتها
   }
 
-  return {
+  const clientConfig = {
     id: slug,
     ...(ownerUid ? { ownerUid } : {}),
     displayName: companyName,
@@ -93,6 +93,15 @@ function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escala
     trialExpiresAt: trialExpiresAt.toISOString(),
     source, // { type: "website"|"pdf"|"excel", value, ingestedAt } — للتتبّع/التدقيق لاحقًا
   };
+
+  if (campaignCode) {
+    clientConfig.acquisition = {
+      campaignCode,
+      capturedAt: now.toISOString()
+    };
+  }
+
+  return clientConfig;
 }
 
 // إنشاء ذرّي: نكتب كل شي بمجلد مؤقت مخفي (نفس المجلد الأب، حتى الـ rename يكون ذرّي فعليًا
@@ -100,9 +109,9 @@ function defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escala
 // بالنص لا سمح الله بيوقف العملية قبل ما يوصل للـ rename — ما في مجلد عميل نصف-مكتمل
 // registry.js يقدر يحمّله بالغلط (registry أصلاً بيتجاهل أي مجلد بدون config.json، فالمجلد
 // المؤقت ما ظاهر إله أبدًا حتى لو حدا قرا المجلد بنفس اللحظة).
-function createClient({ companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, knowledgeContent, knowledgeFileName, ownerUid }) {
+function createClient({ companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, knowledgeContent, knowledgeFileName, ownerUid, campaignCode }) {
   const slug = generateUniqueSlug(companyName);
-  const clientConfig = defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, ownerUid });
+  const clientConfig = defaultConfig({ slug, companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, source, ownerUid, campaignCode });
   const publicKey = apiKeys.generatePublicKey();
   const authData = { publicKey, apiKeys: [] };
 
@@ -179,4 +188,5 @@ module.exports = {
   createClient,
   replaceKnowledge,
   activateClient,
+  buildConfig: defaultConfig,
 };

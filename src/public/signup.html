@@ -163,12 +163,14 @@
     clearFieldErrors();
     banner.innerHTML = "";
 
+    var urlParams = new URLSearchParams(window.location.search);
     var data = {
       companyName: form.companyName.value.trim(),
       notifyWhatsapp: form.notifyWhatsapp.value.trim(),
       escalationPhone: form.escalationPhone.value.trim(),
       websiteUrl: form.websiteUrl.value.trim(),
       acceptedTerms: form.acceptedTerms.checked,
+      campaignCode: urlParams.get("campaign") || undefined,
     };
 
     var missing = [];

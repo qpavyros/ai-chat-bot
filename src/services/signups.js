@@ -17,7 +17,7 @@ function pendingRef(pendingId) {
   return db.collection(COLLECTION).doc(pendingId);
 }
 
-async function createPending(ownerUid, { companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl }) {
+async function createPending(ownerUid, { companyName, contactEmail, notifyWhatsapp, escalationPhone, websiteUrl, campaignCode }) {
   // لو عندو طلب قيد التنفيذ أصلاً، رجّعه بدل ما تنشئ وحدة تانية (idempotent).
   const existing = await db
     .collection(COLLECTION)
@@ -36,6 +36,7 @@ async function createPending(ownerUid, { companyName, contactEmail, notifyWhatsa
     notifyWhatsapp,
     escalationPhone,
     websiteUrl,
+    campaignCode: campaignCode || null,
     status: "in_progress",
     clientId: null, // بينحط بعد أول استيراد معرفة ناجح (POST /signup/knowledge)
     publicKey: null,

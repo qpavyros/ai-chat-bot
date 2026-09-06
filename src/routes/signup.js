@@ -23,6 +23,7 @@ const userAccounts = require("../services/userAccounts");
 const ingest = require("../services/ingest");
 const urlGuard = require("../services/urlGuard");
 const rateLimit = require("../services/rateLimit");
+const { normalizeCampaignCode } = require("../services/launchCampaign");
 const whatsapp = require("../services/whatsapp");
 const deepseek = require("../services/deepseek");
 const customers = require("../services/customers");
@@ -85,7 +86,7 @@ router.get("/signup/embedded-signup-config", (req, res) => {
 
 // ===== POST /signup/start — يحتاج تسجيل دخول حساب أول =====
 router.post("/signup/start", requireUserAuth, asyncHandler(async (req, res) => {
-  const { companyName, notifyWhatsapp, escalationPhone, websiteUrl, acceptedTerms } = req.body || {};
+  const { companyName, notifyWhatsapp, escalationPhone, websiteUrl, acceptedTerms, campaignCode } = req.body || {};
 
   if (!companyName || String(companyName).trim().length < 2 || String(companyName).length > 100) {
     return res.status(400).json({ error: { code: "invalid_company_name", message: "اسم الشركة مطلوب (2-100 حرف)" } });
@@ -130,6 +131,7 @@ router.post("/signup/start", requireUserAuth, asyncHandler(async (req, res) => {
     notifyWhatsapp: String(notifyWhatsapp).trim(),
     escalationPhone: String(escalationPhone).trim(),
     websiteUrl: trimmedWebsiteUrl,
+    campaignCode: normalizeCampaignCode(campaignCode),
   });
 
   await userAccounts.setOnboardingState(req.uid, { pendingId: pending.pendingId, currentStep: "knowledge" });
@@ -244,6 +246,7 @@ router.post("/signup/knowledge", ...requireOwnedPending(), upload.single("file")
       knowledgeContent: content,
       knowledgeFileName,
       ownerUid: pending.ownerUid,
+      campaignCode: pending.campaignCode,
     });
     clientId = result.clientId;
     publicKey = result.publicKey;
