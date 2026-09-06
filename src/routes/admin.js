@@ -415,7 +415,12 @@ router.post("/admin/api/clients/:id/record-payment", requireAuth, express.json()
   try {
     const client = require("../clients/registry").getClientById(id);
     const result = client?.ownerUid
-      ? await require("../services/accountEntitlements").createAccountEntitlements().recordPayment(client.ownerUid, { operationId: opId, tier: client.tier || null })
+      ? await require("../services/accountEntitlements").createAccountEntitlements().recordPayment(client.ownerUid, {
+          operationId: opId,
+          tier: client.tier || null,
+          amountUsd: client.tier && config.plans[client.tier] ? config.plans[client.tier].price : null,
+          campaignCode: client.acquisition?.campaignCode || null,
+        })
       : await require("../services/billing").recordPayment(id, opId);
     if (result?.ok === false) return res.status(409).json({ error: result.reason });
     replyCache.clear(id);

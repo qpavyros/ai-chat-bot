@@ -2,6 +2,20 @@ function finiteNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+const {
+  CLINICS_LAUNCH_CODE,
+  CLINICS_LAUNCH_DISCOUNT_PERCENT,
+  CLINICS_LAUNCH_LIMIT,
+  CLINICS_LAUNCH_GRACE_DAYS,
+  normalizeCampaignCode,
+} = require("./launchCampaign");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function roundedUsd(value) {
+  return Number.isFinite(value) ? Math.round((value + Number.EPSILON) * 100) / 100 : null;
+}
+
 function settleEntitlements(bots, planCatalog, now = Date.now()) {
   const rows = Array.isArray(bots) ? bots : [];
   let topPlan = null;
@@ -94,21 +108,98 @@ function createAccountEntitlements({ firestore } = {}) {
         return result;
       });
     },
-    async recordPayment(uid, { operationId, tier, now = Date.now(), amountUsd = null } = {}) {
+    async recordPayment(uid, { operationId, tier, now = Date.now(), amountUsd = null, campaignCode = null } = {}) {
       if (!uid || !operationId) throw new Error("invalid payment");
       const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      const normalizedCampaign = normalizeCampaignCode(campaignCode);
+      const campaignRef = normalizedCampaign
+        ? firestore.collection("marketingCampaigns").doc(CLINICS_LAUNCH_CODE)
+        : null;
       return firestore.runTransaction(async (tx) => {
-        const snap = await tx.get(ref);
+        let snap;
+        let campaignSnap = null;
+        if (campaignRef) {
+          [snap, campaignSnap] = await tx.getAll(ref, campaignRef);
+        } else {
+          snap = await tx.get(ref);
+        }
         if (!snap.exists) return { ok: false, reason: "missing_entitlement" };
         const data = snap.data() || {};
         if (data.unbounded === true) return { ok: false, reason: "missing_entitlement" };
         const operations = data.paymentOperations || {};
         if (operations[operationId]) return operations[operationId].result;
+
+        const firstPayment = Object.keys(operations).length === 0;
+        const previousGrace = Date.parse(data.discountGraceUntil || "");
+        let discountStatus = data.discountStatus || null;
+        let discountApplied = false;
+        let newlyClaimed = false;
+        let campaignData = null;
+
+        if (discountStatus === "active") {
+          if (Number.isFinite(previousGrace) && now <= previousGrace) {
+            discountApplied = true;
+          } else {
+            discountStatus = "lapsed";
+          }
+        } else if (!discountStatus && firstPayment && normalizedCampaign && campaignSnap) {
+          campaignData = campaignSnap.exists ? campaignSnap.data() || {} : {};
+          const claims = campaignData.claims && typeof campaignData.claims === "object" ? campaignData.claims : {};
+          const claimedCount = Math.max(Number(campaignData.claimedCount) || 0, Object.keys(claims).length);
+          if (claimedCount < CLINICS_LAUNCH_LIMIT) {
+            discountStatus = "active";
+            discountApplied = true;
+            newlyClaimed = true;
+            campaignData = {
+              ...campaignData,
+              code: CLINICS_LAUNCH_CODE,
+              limit: CLINICS_LAUNCH_LIMIT,
+              discountPercent: CLINICS_LAUNCH_DISCOUNT_PERCENT,
+              claimedCount: claimedCount + 1,
+              claims: { ...claims, [uid]: { claimedAt: new Date(now).toISOString() } },
+              updatedAt: new Date(now).toISOString(),
+            };
+          }
+        }
+
         const current = Date.parse(data.expiresAt || "");
         const base = Number.isFinite(current) && current > now ? current : now;
-        const nextExpiry = new Date(base + 30 * 24 * 60 * 60 * 1000).toISOString();
-        const result = { ok: true, nextExpiry, plan: tier || data.plan || null, amountUsd };
-        tx.set(ref, { ...data, plan: result.plan, expiresAt: nextExpiry, paymentOperations: { ...operations, [operationId]: { result, at: new Date(now).toISOString() } }, updatedAt: new Date().toISOString() }, { merge: false });
+        const nextExpiry = new Date(base + 30 * DAY_MS).toISOString();
+        const originalAmountUsd = roundedUsd(amountUsd);
+        const chargedAmountUsd = discountApplied && originalAmountUsd !== null
+          ? roundedUsd(originalAmountUsd * (1 - CLINICS_LAUNCH_DISCOUNT_PERCENT / 100))
+          : originalAmountUsd;
+        const graceUntil = discountStatus === "active"
+          ? new Date(Date.parse(nextExpiry) + CLINICS_LAUNCH_GRACE_DAYS * DAY_MS).toISOString()
+          : data.discountGraceUntil || null;
+        const result = {
+          ok: true,
+          nextExpiry,
+          plan: tier || data.plan || null,
+          amountUsd: chargedAmountUsd,
+          originalAmountUsd,
+          chargedAmountUsd,
+          discountApplied,
+          discountPercent: discountApplied ? CLINICS_LAUNCH_DISCOUNT_PERCENT : 0,
+          discountStatus: normalizedCampaign && !discountStatus ? "unavailable" : discountStatus,
+          campaignCode: discountApplied ? CLINICS_LAUNCH_CODE : null,
+        };
+        const next = {
+          ...data,
+          plan: result.plan,
+          expiresAt: nextExpiry,
+          ...(discountStatus ? {
+            discountPercent: CLINICS_LAUNCH_DISCOUNT_PERCENT,
+            discountCampaignCode: CLINICS_LAUNCH_CODE,
+            discountClaimedAt: newlyClaimed ? new Date(now).toISOString() : data.discountClaimedAt,
+            discountStatus,
+            discountGraceUntil: graceUntil,
+          } : {}),
+          paymentOperations: { ...operations, [operationId]: { result, at: new Date(now).toISOString() } },
+          updatedAt: new Date(now).toISOString(),
+        };
+        tx.set(ref, next, { merge: false });
+        if (newlyClaimed) tx.set(campaignRef, campaignData, { merge: false });
         return result;
       });
     },

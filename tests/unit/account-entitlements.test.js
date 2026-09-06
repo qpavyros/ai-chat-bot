@@ -97,3 +97,147 @@ test("account payment extends from the farther existing expiry and is idempotent
   assert.deepEqual(replay, first);
   assert.equal(data.plan, "growth");
 });
+
+function createCampaignFirestore(initial = {}) {
+  const store = new Map(Object.entries(initial).map(([key, value]) => [key, structuredClone(value)]));
+  let queue = Promise.resolve();
+  function docRef(path) {
+    return {
+      path,
+      collection(name) { return { doc: (id) => docRef(`${path}/${name}/${id}`) }; },
+    };
+  }
+  const firestore = {
+    collection(name) { return { doc: (id) => docRef(`${name}/${id}`) }; },
+    runTransaction(fn) {
+      const run = queue.then(async () => {
+        const writes = [];
+        const snapshot = (ref) => ({
+          exists: store.has(ref.path),
+          data: () => structuredClone(store.get(ref.path)),
+        });
+        const tx = {
+          get: async (ref) => snapshot(ref),
+          getAll: async (...refs) => refs.map(snapshot),
+          set: (ref, value) => writes.push([ref.path, structuredClone(value)]),
+        };
+        const result = await fn(tx);
+        for (const [path, value] of writes) store.set(path, value);
+        return result;
+      });
+      queue = run.catch(() => {});
+      return run;
+    },
+  };
+  return { firestore, read: (path) => structuredClone(store.get(path)) };
+}
+
+test("clinics launch discount is claimed atomically on the first payment", async () => {
+  const now = Date.parse("2026-09-06T12:00:00.000Z");
+  const { firestore, read } = createCampaignFirestore({
+    "users/uid-1/billing/entitlements": { plan: "starter", expiresAt: "2026-09-07T12:00:00.000Z" },
+  });
+  const service = createAccountEntitlements({ firestore });
+  const result = await service.recordPayment("uid-1", {
+    operationId: "payment-1",
+    tier: "starter",
+    amountUsd: 29,
+    campaignCode: "clinics-launch-2026",
+    now,
+  });
+
+  assert.equal(result.chargedAmountUsd, 23.2);
+  assert.equal(result.discountApplied, true);
+  assert.equal(result.discountStatus, "active");
+  assert.equal(read("marketingCampaigns/clinics-launch-2026").claimedCount, 1);
+  const entitlement = read("users/uid-1/billing/entitlements");
+  assert.equal(entitlement.discountPercent, 20);
+  assert.equal(entitlement.discountCampaignCode, "clinics-launch-2026");
+  assert.equal(entitlement.discountGraceUntil, "2026-10-14T12:00:00.000Z");
+});
+
+test("campaign payment replay returns the original result without a second claim", async () => {
+  const now = Date.parse("2026-09-06T12:00:00.000Z");
+  const { firestore, read } = createCampaignFirestore({
+    "users/uid-1/billing/entitlements": { plan: "starter" },
+  });
+  const service = createAccountEntitlements({ firestore });
+  const input = { operationId: "same-payment", tier: "starter", amountUsd: 29, campaignCode: "clinics-launch-2026", now };
+  const first = await service.recordPayment("uid-1", input);
+  const replay = await service.recordPayment("uid-1", input);
+
+  assert.deepEqual(replay, first);
+  assert.equal(read("marketingCampaigns/clinics-launch-2026").claimedCount, 1);
+  assert.equal(Object.keys(read("users/uid-1/billing/entitlements").paymentOperations).length, 1);
+});
+
+test("only five concurrent campaign accounts receive the founders discount", async () => {
+  const now = Date.parse("2026-09-06T12:00:00.000Z");
+  const initial = {};
+  for (let i = 1; i <= 6; i += 1) initial[`users/uid-${i}/billing/entitlements`] = { plan: "starter" };
+  const { firestore, read } = createCampaignFirestore(initial);
+  const service = createAccountEntitlements({ firestore });
+  const results = await Promise.all(Array.from({ length: 6 }, (_, index) => service.recordPayment(`uid-${index + 1}`, {
+    operationId: `payment-${index + 1}`,
+    tier: "starter",
+    amountUsd: 29,
+    campaignCode: "clinics-launch-2026",
+    now,
+  })));
+
+  assert.equal(results.filter((result) => result.discountApplied).length, 5);
+  assert.equal(results.filter((result) => result.discountStatus === "unavailable").length, 1);
+  assert.equal(read("marketingCampaigns/clinics-launch-2026").claimedCount, 5);
+});
+
+test("active founders discount follows plan changes and renews through the exact grace boundary", async () => {
+  const grace = "2026-09-13T12:00:00.000Z";
+  const now = Date.parse(grace);
+  const { firestore, read } = createCampaignFirestore({
+    "users/uid-1/billing/entitlements": {
+      plan: "starter",
+      expiresAt: "2026-09-06T12:00:00.000Z",
+      discountPercent: 20,
+      discountCampaignCode: "clinics-launch-2026",
+      discountClaimedAt: "2026-08-01T12:00:00.000Z",
+      discountStatus: "active",
+      discountGraceUntil: grace,
+      paymentOperations: { old: { result: { ok: true } } },
+    },
+  });
+  const service = createAccountEntitlements({ firestore });
+  const result = await service.recordPayment("uid-1", { operationId: "renew", tier: "pro", amountUsd: 99, now });
+
+  assert.equal(result.chargedAmountUsd, 79.2);
+  assert.equal(result.plan, "pro");
+  assert.equal(result.discountStatus, "active");
+  assert.equal(read("users/uid-1/billing/entitlements").discountGraceUntil, "2026-10-20T12:00:00.000Z");
+});
+
+test("late renewal permanently lapses the founders discount and charges full price", async () => {
+  const { firestore, read } = createCampaignFirestore({
+    "users/uid-1/billing/entitlements": {
+      plan: "starter",
+      expiresAt: "2026-09-06T12:00:00.000Z",
+      discountPercent: 20,
+      discountCampaignCode: "clinics-launch-2026",
+      discountClaimedAt: "2026-08-01T12:00:00.000Z",
+      discountStatus: "active",
+      discountGraceUntil: "2026-09-13T12:00:00.000Z",
+      paymentOperations: { old: { result: { ok: true } } },
+    },
+  });
+  const service = createAccountEntitlements({ firestore });
+  const result = await service.recordPayment("uid-1", {
+    operationId: "late-renewal",
+    tier: "growth",
+    amountUsd: 59,
+    campaignCode: "clinics-launch-2026",
+    now: Date.parse("2026-09-13T12:00:00.001Z"),
+  });
+
+  assert.equal(result.chargedAmountUsd, 59);
+  assert.equal(result.discountApplied, false);
+  assert.equal(result.discountStatus, "lapsed");
+  assert.equal(read("users/uid-1/billing/entitlements").discountStatus, "lapsed");
+});
