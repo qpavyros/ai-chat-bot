@@ -74,6 +74,7 @@
       </div>
     </div>
     <div id="payment-banner"></div>
+    <div id="campaign-banner"></div>
 
     <!-- ===== معلومات أساسية ===== -->
     <section class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-outline-variant shadow-sm mb-6">
@@ -303,6 +304,13 @@
       document.title = cfg.displayName + " — تفاصيل العميل";
       renderBadges(cfg);
 
+      var campaignBanner = document.getElementById("campaign-banner");
+      if (cfg.acquisition?.campaignCode === "clinics-launch-2026") {
+        campaignBanner.innerHTML = '<div class="banner success">حملة العيادات: هذا الحساب مؤهل للمنافسة على أحد أول 5 أماكن لخصم المؤسسين 20% عند أول دفعة. تثبيت الخصم يتم ذرياً عند تسجيل الدفعة.</div>';
+      } else {
+        campaignBanner.innerHTML = "";
+      }
+
       document.getElementById("f_displayName").value = cfg.displayName || "";
       document.getElementById("f_status").value = cfg.status || "active";
       document.getElementById("f_tier").value = cfg.tier || "";
@@ -489,6 +497,9 @@
       });
     }).then(function (res) {
       var msg = "تسجّلت ✓ — الاشتراك ممدّد لـ" + res.nextExpiry;
+      if (res.discountApplied) msg += " — خُصم " + res.discountPercent + "% وثُبّت عرض المؤسسين.";
+      else if (res.discountStatus === "unavailable") msg += " — اكتملت الأماكن الخمسة؛ سُجّلت الدفعة بالسعر العادي.";
+      else if (res.discountStatus === "lapsed") msg += " — انتهت مهلة خصم المؤسسين؛ سُجّلت الدفعة بالسعر العادي.";
       if (res.referralEligible) msg += " — 🎁 مكافأة إحالة صارت مستحقة.";
       banner.innerHTML = '<div class="banner success">' + esc(msg) + '</div>';
       loadClient();

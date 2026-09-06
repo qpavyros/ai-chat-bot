@@ -82,12 +82,21 @@ router.get("/dashboard/bots/:clientId/api/summary", requireUserAuth, requireOwne
     ? await usageLedger.peek(`voice-seconds-monthly:${req.clientId}`)
     : { count: 0 };
 
+  let campaignOffer = null;
+  const { CLINICS_LAUNCH_CODE } = require("../services/launchCampaign");
+  if (cfg.acquisition?.campaignCode === CLINICS_LAUNCH_CODE) {
+    const { createAccountEntitlements } = require("../services/accountEntitlements");
+    const entitlements = createAccountEntitlements();
+    campaignOffer = await entitlements.getCampaignOffer(req.uid, CLINICS_LAUNCH_CODE, config.plans);
+  }
+
   res.json({
     clientId: req.clientId,
     displayName: cfg.displayName,
     tone: cfg.tone,
     escalation: cfg.escalation,
     botPaused: Boolean(cfg.botPaused),
+    campaignOffer,
     channels: {
       whatsapp: { enabled: cfg.channels?.whatsapp?.enabled !== false, connected: Boolean(cfg.whatsappPhoneNumberId) },
       web: { enabled: cfg.channels?.web?.enabled !== false },

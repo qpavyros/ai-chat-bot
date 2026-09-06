@@ -132,11 +132,20 @@
   }
 
   function planCard(key, plan, isCurrent) {
+    var offer = state.campaignOffer;
+    var showDiscount = offer && offer.discountedPrices && (offer.status === "eligible" || offer.status === "active");
+    var priceDisplay = '<span class="font-display-lg text-[32px] font-bold text-primary">$' + esc(plan.price) + '</span>';
+    if (showDiscount && offer.discountedPrices[key] != null && offer.discountedPrices[key] < plan.price) {
+      priceDisplay = '<div class="flex items-baseline gap-2"><span class="text-on-surface-variant line-through text-sm">$' + esc(plan.price) + '</span><span class="font-display-lg text-[32px] font-bold text-primary">$' + esc(offer.discountedPrices[key]) + '</span></div>';
+    } else {
+      priceDisplay = '<div class="flex items-baseline gap-2">' + priceDisplay + '</div>';
+    }
+
     return (
       '<div class="bg-surface-container-lowest rounded-xl border ' + (isCurrent ? "border-primary border-2" : "border-outline-variant") + ' p-6 flex flex-col relative">' +
       (isCurrent ? '<div class="absolute -top-3 right-6 bg-primary text-on-primary px-3 py-1 rounded-full font-label-sm text-label-sm">باقتك الحالية</div>' : "") +
       '<h4 class="font-headline-md text-headline-md text-on-surface mb-2 mt-1">' + esc(key) + '</h4>' +
-      '<div class="flex items-baseline gap-1 mb-4"><span class="font-display-lg text-[32px] font-bold text-primary">$' + esc(plan.price) + '</span><span class="text-on-surface-variant text-sm">/ شهريًا</span></div>' +
+      '<div class="flex items-baseline gap-1 mb-4">' + priceDisplay + '<span class="text-on-surface-variant text-sm">/ شهريًا</span></div>' +
       '<ul class="flex-1 flex flex-col gap-2 text-sm text-on-surface mb-6">' +
       '<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span>' + esc(plan.monthlyMessageCap) + ' رسالة شهريًا</li>' +
       '<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span>' + esc(plan.monthlyVoiceMinutes) + ' دقيقة صوت شهريًا</li>' +
@@ -192,6 +201,20 @@
     var packs = state.topUpPacks || {};
     var history = state.paymentHistory || [];
 
+    var foundersBanner = "";
+    if (state.campaignOffer) {
+      if (state.campaignOffer.status === "eligible") {
+        foundersBanner = '<div class="banner success mb-4"><span class="material-symbols-outlined">celebration</span><span>عرض المؤسسين متاح: خصم ' + esc(state.campaignOffer.discountPercent) + '% طالما الاشتراك مستمر. متبقّي ' + esc(state.campaignOffer.remainingSpots) + ' أماكن، ويُثبّت مكانك عند تسجيل أول دفعة.</span></div>';
+      } else if (state.campaignOffer.status === "active") {
+        var graceText = state.campaignOffer.graceUntil ? " جدّد قبل " + new Date(state.campaignOffer.graceUntil).toLocaleDateString("ar-LB") + " للحفاظ عليه." : "";
+        foundersBanner = '<div class="banner success mb-4"><span class="material-symbols-outlined">verified</span><span>خصم المؤسسين ' + esc(state.campaignOffer.discountPercent) + '% مفعّل لحسابك طالما الاشتراك مستمر.' + esc(graceText) + '</span></div>';
+      } else if (state.campaignOffer.status === "lapsed") {
+        foundersBanner = '<div class="banner warning mb-4"><span class="material-symbols-outlined">warning</span><span>انتهت مهلة تجديد خصم المؤسسين. الأسعار العادية مطبّقة على التجديدات الجديدة.</span></div>';
+      } else if (state.campaignOffer.status === "unavailable") {
+        foundersBanner = '<div class="banner warning mb-4"><span class="material-symbols-outlined">group</span><span>اكتملت الأماكن الخمسة لعرض المؤسسين. ما زالت تجربة 7 أيام متاحة.</span></div>';
+      }
+    }
+
     content.innerHTML =
       '<div class="mb-8">' +
       '<h1 class="font-headline-lg text-headline-lg text-primary mb-1">الباقات والاشتراكات</h1>' +
@@ -215,6 +238,7 @@
       '</section>' +
 
       '<section class="mb-8">' +
+      foundersBanner +
       '<h3 class="font-headline-md text-headline-md text-on-surface mb-5">اختر الباقة المناسبة لعملك</h3>' +
       '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">' +
       Object.keys(plans).map(function (key) { return planCard(key, plans[key], key === state.tier); }).join("") +

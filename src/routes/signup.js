@@ -24,6 +24,7 @@ const ingest = require("../services/ingest");
 const urlGuard = require("../services/urlGuard");
 const rateLimit = require("../services/rateLimit");
 const { normalizeCampaignCode } = require("../services/launchCampaign");
+const { createAccountEntitlements } = require("../services/accountEntitlements");
 const whatsapp = require("../services/whatsapp");
 const deepseek = require("../services/deepseek");
 const customers = require("../services/customers");
@@ -383,6 +384,14 @@ router.post("/signup/activate", ...requireOwnedPending(), asyncHandler(async (re
 
   await provisioning.activateClient(pending.clientId);
   await userAccounts.attachBot(req.uid, pending.clientId);
+  const activatedClient = registry.getClientById(pending.clientId);
+  await createAccountEntitlements().ensure(req.uid, {
+    plan: null,
+    expiresAt: activatedClient?.trialExpiresAt || null,
+    remainingMessages: config.provisioning.trialMessageCap,
+    remainingVoiceSeconds: config.provisioning.trialVoiceMinutes * 60,
+    remainingCredits: 0,
+  });
   await signups.markCompleted(pending.pendingId);
   await userAccounts.clearOnboardingState(req.uid);
 

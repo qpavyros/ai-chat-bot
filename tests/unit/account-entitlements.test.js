@@ -98,6 +98,55 @@ test("account payment extends from the farther existing expiry and is idempotent
   assert.equal(data.plan, "growth");
 });
 
+test("account entitlement ensure creates once without granting again", async () => {
+  let data = null;
+  const ref = {};
+  const firestore = {
+    collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ref }) }) }),
+    runTransaction: async (fn) => fn({
+      get: async () => ({ exists: data !== null, data: () => data }),
+      set: (_ref, next) => { data = next; },
+    }),
+  };
+  const service = createAccountEntitlements({ firestore });
+  const first = await service.ensure("uid-1", { remainingMessages: 120, remainingVoiceSeconds: 300, now: 1 });
+  const second = await service.ensure("uid-1", { remainingMessages: 999, remainingVoiceSeconds: 999, now: 2 });
+
+  assert.equal(first.created, true);
+  assert.equal(second.created, false);
+  assert.equal(data.remainingMessages, 120);
+  assert.equal(data.remainingVoiceSeconds, 300);
+});
+
+test("campaign offer reads only matching discount state and server plan prices", async () => {
+  const docs = new Map([
+    ["users/uid-1/billing/entitlements", { discountCampaignCode: "other-campaign", discountStatus: "active", discountPercent: 90 }],
+    ["marketingCampaigns/clinics-launch-2026", { claimedCount: 2, claims: {} }],
+  ]);
+  function ref(path) {
+    return {
+      path,
+      collection: (name) => ({ doc: (id) => ref(`${path}/${name}/${id}`) }),
+      get: async () => ({ exists: docs.has(path), data: () => docs.get(path) }),
+    };
+  }
+  const firestore = { collection: (name) => ({ doc: (id) => ref(`${name}/${id}`) }) };
+  const offer = await createAccountEntitlements({ firestore }).getCampaignOffer(
+    "uid-1",
+    "clinics-launch-2026",
+    { starter: { price: 29 }, invalid: { price: "free" } }
+  );
+
+  assert.deepEqual(offer, {
+    campaignCode: "clinics-launch-2026",
+    discountPercent: 20,
+    status: "eligible",
+    discountedPrices: { starter: 23.2 },
+    graceUntil: null,
+    remainingSpots: 3,
+  });
+});
+
 function createCampaignFirestore(initial = {}) {
   const store = new Map(Object.entries(initial).map(([key, value]) => [key, structuredClone(value)]));
   let queue = Promise.resolve();

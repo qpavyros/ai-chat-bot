@@ -47,6 +47,26 @@ function settleEntitlements(bots, planCatalog, now = Date.now()) {
 function createAccountEntitlements({ firestore } = {}) {
   if (!firestore) firestore = require("./firebaseAdmin").db;
   return {
+    async ensure(uid, initial = {}) {
+      if (!uid) throw new Error("uid required");
+      const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      return firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists) return { created: false, entitlement: snap.data() || {} };
+        const now = initial.now || Date.now();
+        const entitlement = {
+          plan: initial.plan || null,
+          expiresAt: initial.expiresAt || null,
+          remainingMessages: Math.max(0, finiteNumber(initial.remainingMessages)),
+          remainingVoiceSeconds: Math.max(0, finiteNumber(initial.remainingVoiceSeconds)),
+          remainingCredits: Math.max(0, finiteNumber(initial.remainingCredits)),
+          settledAt: new Date(now).toISOString(),
+          updatedAt: new Date(now).toISOString(),
+        };
+        tx.set(ref, entitlement, { merge: false });
+        return { created: true, entitlement };
+      });
+    },
     async settle(uid, bots, planCatalog, now) {
       if (!uid) throw new Error("uid required");
       const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
@@ -280,6 +300,55 @@ function createAccountEntitlements({ firestore } = {}) {
         tx.update(ref, { status: "refunded" });
         tx.set(entRef, { ...ent, remainingVoiceSeconds: (Number(ent.remainingVoiceSeconds) || 0) + data.amount, updatedAt: new Date().toISOString() }, { merge: false });
       });
+    },
+    async getCampaignOffer(uid, campaignCode, planCatalog) {
+      const normalizedCampaign = normalizeCampaignCode(campaignCode);
+      if (!normalizedCampaign) return null;
+      const ref = firestore.collection("users").doc(uid).collection("billing").doc("entitlements");
+      const campaignRef = firestore.collection("marketingCampaigns").doc(normalizedCampaign);
+      const [snap, campaignSnap] = await Promise.all([ref.get(), campaignRef.get()]);
+
+      const data = snap.exists ? snap.data() || {} : {};
+      const campaignData = campaignSnap.exists ? campaignSnap.data() || {} : {};
+
+      const claims = campaignData.claims && typeof campaignData.claims === "object" ? campaignData.claims : {};
+      const claimedCount = Math.max(Number(campaignData.claimedCount) || 0, Object.keys(claims).length);
+      const remainingSpots = Math.max(0, CLINICS_LAUNCH_LIMIT - claimedCount);
+
+      let status = "unavailable";
+      let discountPercent = 0;
+      let graceUntil = null;
+
+      if (data.discountCampaignCode === normalizedCampaign && data.discountStatus) {
+        status = data.discountStatus;
+        if (status === "active" || status === "lapsed") {
+          discountPercent = data.discountPercent || CLINICS_LAUNCH_DISCOUNT_PERCENT;
+        }
+        graceUntil = data.discountGraceUntil || null;
+      } else if (remainingSpots > 0) {
+        status = "eligible";
+        discountPercent = CLINICS_LAUNCH_DISCOUNT_PERCENT;
+      }
+
+      const discountedPrices = {};
+      if (planCatalog) {
+        for (const [planId, plan] of Object.entries(planCatalog)) {
+          if (typeof plan.price === "number") {
+            discountedPrices[planId] = status === "eligible" || status === "active"
+              ? Math.round((plan.price * (1 - discountPercent / 100) + Number.EPSILON) * 100) / 100
+              : plan.price;
+          }
+        }
+      }
+
+      return {
+        campaignCode: normalizedCampaign,
+        discountPercent,
+        status,
+        discountedPrices,
+        graceUntil,
+        remainingSpots,
+      };
     },
   };
 }
