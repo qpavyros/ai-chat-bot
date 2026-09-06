@@ -15,7 +15,8 @@
     "purge:deleted-bots": "node scripts/purge-deleted-bots.js",
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:smoke": "node scripts/smoke-test.js",
-    "test:voice": "node scripts/test-voice.js"
+    "test:voice": "node scripts/test-voice.js",
+    "test:campaign": "node scripts/campaign-smoke-test.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
