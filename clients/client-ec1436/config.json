@@ -9,9 +9,11 @@
     "notifyWhatsapp": "96181956972"
   },
   "contactEmail": null,
-  "status": "active",
+  "status": "migration_pending",
   "plan": "manual",
   "subscriptionExpiresAt": null,
   "knowledgeSourceLabel": "https://ayoubcomputers.com/",
-  "createdAt": "2026-08-09T16:22:41.343Z"
+  "createdAt": "2026-08-09T16:22:41.343Z",
+  "migrationExcludedAt": "2026-09-05T21:36:01.210Z",
+  "migrationExclusionReason": "missing verified Firebase account ownership"
 }

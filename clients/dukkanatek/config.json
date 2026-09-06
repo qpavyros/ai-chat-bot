@@ -12,7 +12,7 @@
   "allowedOrigins": [
     "http://exampel.com"
   ],
-  "status": "active",
+  "status": "migration_pending",
   "plan": "trial",
   "knowledgeReviewed": false,
   "createdAt": "2026-08-13T19:54:05.363Z",
@@ -24,5 +24,7 @@
   },
   "whatsappPhoneNumberId": "1281413571719433",
   "whatsappBusinessAccountId": "1507913894354683",
-  "whatsappRegistrationPin": "937300"
+  "whatsappRegistrationPin": "937300",
+  "migrationExcludedAt": "2026-09-05T21:36:01.211Z",
+  "migrationExclusionReason": "missing verified Firebase account ownership"
 }

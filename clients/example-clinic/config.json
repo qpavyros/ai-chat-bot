@@ -20,7 +20,7 @@
       5
     ]
   },
-  "status": "active",
+  "status": "migration_pending",
   "tier": null,
   "subscriptionExpiresAt": null,
   "knowledgeSourceLabel": "",
@@ -58,5 +58,7 @@
   "referredByClientId": null,
   "onboardingChecklist": {
     "waba_created": false
-  }
+  },
+  "migrationExcludedAt": "2026-09-05T21:36:01.211Z",
+  "migrationExclusionReason": "missing verified Firebase account ownership"
 }

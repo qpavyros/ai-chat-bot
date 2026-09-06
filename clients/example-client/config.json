@@ -12,7 +12,9 @@
   "orders": {
     "enabled": true
   },
-  "status": "active",
+  "status": "migration_pending",
   "knowledgeSourceLabel": "اختبار: بيانات مُدخلة يدويًا 2026-08-09",
-  "subscriptionExpiresAt": null
+  "subscriptionExpiresAt": null,
+  "migrationExcludedAt": "2026-09-05T21:36:01.211Z",
+  "migrationExclusionReason": "missing verified Firebase account ownership"
 }
