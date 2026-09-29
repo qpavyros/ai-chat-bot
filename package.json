@@ -16,7 +16,9 @@
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:smoke": "node scripts/smoke-test.js",
     "test:voice": "node scripts/test-voice.js",
-    "test:campaign": "node scripts/campaign-smoke-test.js"
+    "test:campaign": "node scripts/campaign-smoke-test.js",
+    "test:integration": "node --test --test-concurrency=1 \"tests/integration/*.test.js\"",
+    "test:integration:emulator": "firebase emulators:exec --project demo-ai-chat-bot --only auth,firestore \"npm run test:integration\""
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -33,6 +35,7 @@
   "devDependencies": {
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",
+    "firebase-tools": "15.31.0",
     "nodemon": "^3.1.7",
     "tailwindcss": "^3.4.19"
   }
